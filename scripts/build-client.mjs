@@ -4,9 +4,25 @@ import { transformSync } from 'esbuild'
 
 export const clientSources = ['core.js', 'styles.js', 'views.js', 'settings.js', 'wallet.js']
 
+/**
+ * The loader id the bundle must register itself under.
+ *
+ * Read from package.json rather than hardcoded: the DSH client-module host
+ * resolves each entry's bundle through `<name>/client` and asserts the bundle
+ * registered under exactly that id, so any rename (this fork is
+ * `deepseek-harness-wallet-patched`) has to reach this string or the host
+ * refuses to boot the plugin. Deriving it makes that drift impossible.
+ */
+const { name: PACKAGE_NAME, version: PLUGIN_VERSION } = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+)
+
 export function clientSource() {
   const body = clientSources.map(name => readFileSync(new URL('../src/client/' + name, import.meta.url), 'utf8').replaceAll('\r\n', '\n')).join('\n')
-  return "window.__ModuleLoader__.load({\n  id: 'deepseek-harness-wallet',\n  factory: (require) => {\n" + body + '\nreturn module.exports\n}\n})\n'
+  // The version the settings UI shows is baked into the bundle, so it is stamped
+  // here from the manifest instead of living as a second copy in core.js.
+  const stamped = body.replace(/var WALLET_VERSION = '[^']*'/, `var WALLET_VERSION = '${PLUGIN_VERSION}'`)
+  return `window.__ModuleLoader__.load({\n  id: '${PACKAGE_NAME}',\n  factory: (require) => {\n` + stamped + '\nreturn module.exports\n}\n})\n'
 }
 
 export function buildClient() {

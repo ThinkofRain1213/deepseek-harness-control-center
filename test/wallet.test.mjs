@@ -250,8 +250,11 @@ test('release READMEs use only approved status badges and every local Markdown t
 
 test('release identity and intended npm archive inventory stay aligned', () => {
   const pkg = JSON.parse(readProjectFile('package.json'))
-  assert.equal(pkg.name, 'deepseek-harness-wallet')
-  assert.equal(pkg.version, '0.3.13')
+  // Patched-fork identity: upstream releases as `deepseek-harness-wallet`, this
+  // local fork installs under its own name so the two can coexist in one profile
+  // without colliding on the client-module loader id.
+  assert.equal(pkg.name, 'deepseek-harness-wallet-patched')
+  assert.match(pkg.version, /^0\.3\.13-patched\.\d+$/)
   assert.equal(pkg.main, 'index.js')
   assert.equal(pkg.dsh.client.platform, 'web')
   assert.deepEqual(pkg.files, [
@@ -262,9 +265,12 @@ test('release identity and intended npm archive inventory stay aligned', () => {
     'cordis.patch.yml',
     'integrations/dsh-session-delete/**',
   ])
-  assert.equal(pkg.repository.url, 'git+https://github.com/feibi-mochi/deepseek-harness-control-center.git')
-  assert.equal(pkg.homepage, 'https://github.com/feibi-mochi/deepseek-harness-control-center#readme')
-  assert.equal(pkg.bugs.url, 'https://github.com/feibi-mochi/deepseek-harness-control-center/issues')
+  // The fork publishes itself, so the manifest must name the fork rather than
+  // upstream. This is also load-bearing for the plugin market, which resolves a
+  // `file:` install's online source from this field.
+  assert.equal(pkg.repository.url, 'git+https://github.com/ThinkofRain1213/deepseek-harness-control-center.git')
+  assert.equal(pkg.homepage, 'https://github.com/ThinkofRain1213/deepseek-harness-control-center#readme')
+  assert.equal(pkg.bugs.url, 'https://github.com/ThinkofRain1213/deepseek-harness-control-center/issues')
   assert.match(pkg.description, /monitor/i)
   assert.match(pkg.description, /recharge/i)
   assert.match(pkg.description, /reminder/i)
@@ -419,7 +425,7 @@ test('portable AES-GCM account encryption round-trips and rejects tampering', ()
 test('health snapshot exposes compatibility, pricing sync, and encrypted account status without secrets', () => {
   const health = healthSnapshot()
   assert.equal(health.ok, true)
-  assert.equal(health.plugin.name, 'deepseek-harness-wallet')
+  assert.equal(health.plugin.name, 'deepseek-harness-wallet-patched')
   assert.equal(health.plugin.version, JSON.parse(readProjectFile('package.json')).version)
   assert.equal(typeof health.host.compatibility.status, 'string')
   assert.equal(typeof health.pricing.status, 'string')

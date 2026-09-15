@@ -1,7 +1,7 @@
 {
-  "name": "deepseek-harness-wallet",
+  "name": "deepseek-harness-wallet-patched",
   "description": "Local-first DeepSeek Harness control center for balance monitoring, usage accounting, time-aware custom third-party API pricing, a 365-day local token ledger, Z.ai Coding Plan quotas, official pricing sync, encrypted multi-account switching, reminders, recharge, and host-gated session controls.",
-  "version": "0.3.13",
+  "version": "0.3.13-patched.2",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -43,11 +43,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/feibi-mochi/deepseek-harness-control-center.git"
+    "url": "git+https://github.com/ThinkofRain1213/deepseek-harness-control-center.git"
   },
-  "homepage": "https://github.com/feibi-mochi/deepseek-harness-control-center#readme",
+  "homepage": "https://github.com/ThinkofRain1213/deepseek-harness-control-center#readme",
   "bugs": {
-    "url": "https://github.com/feibi-mochi/deepseek-harness-control-center/issues"
+    "url": "https://github.com/ThinkofRain1213/deepseek-harness-control-center/issues"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"

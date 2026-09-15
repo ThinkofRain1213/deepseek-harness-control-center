@@ -1,4 +1,19 @@
-# deepseek-harness-wallet bundle patch: mounts the wallet row (host + browser halves).
+# deepseek-harness-wallet-patched bundle patch: mounts the patched wallet row.
+#
+# This is the LOCAL PATCHED fork of deepseek-harness-wallet. It installs under
+# its own package name so it can coexist with the untouched registry release,
+# which the profile keeps as a separate (disabled) entry that the plugin market
+# may still update.
+#
+# Why a distinct package name is required: the client-module host resolves every
+# entry's `dsh.client` bundle through "<name>/client" and then asserts the bundle
+# registered itself under exactly that id. Two entries sharing one name would
+# collide on the same loader id and the same /plugins/<name>/client.js URL.
+#
+# NEVER enable both entries at once: they register the same sidebar footer slot
+# (sidebar.footer.action), the same settings section (settings.section), the same
+# composer slot (conversation.input.left) and the same host route table
+# (/api/wallet/*). Keep the registry entry disabled while this fork is active.
 - insert:
-    - id: wallet
-      name: deepseek-harness-wallet
+    - id: wallet-patched
+      name: deepseek-harness-wallet-patched
