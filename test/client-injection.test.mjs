@@ -3,6 +3,16 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 
+// Stand-in for @deepseek-ai/dsh-client-locale. `locale` is a REQUIRED
+// dependency (cordis throws on an undeclared service read), so every ctx that
+// reaches apply() must provide it, exactly as the real host composition does.
+function stubLocale() {
+  return {
+    register() { return () => {} },
+    bind() { return (key) => key },
+  }
+}
+
 test('composer model resolution declares remote.session in its calling scope', () => {
   let definition
   runInNewContext(readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8'), {
@@ -11,6 +21,8 @@ test('composer model resolution declares remote.session in its calling scope', (
   const plugin = definition.factory(() => ({ useEffect() {} }))
   let resolved = false
   plugin.apply({
+    locale: stubLocale(),
+    effect(run) { return run() },
     inject(dependencies, callback) {
       if (!dependencies.includes('conversation')) return
       const allowed = new Set([...plugin.inject, ...dependencies])
@@ -51,27 +63,126 @@ test('the wallet declares the locale service its i18n probe reads', () => {
   )
 })
 
-// The locale seat is injected by the renderer into SLOT-registered components
-// only. A nested component created with React.createElement inside another
-// component is not a slot entry, so it never receives `t` from the seat and
-// silently falls back to the Chinese dictionary. Every in-tree component that
-// renders copy must therefore be handed `t` explicitly at its creation site.
-test('nested wallet components receive the translate function explicitly', () => {
-  const sources = ['wallet.js', 'settings.js'].map((name) =>
-    readFileSync(new URL('../src/client/' + name, import.meta.url), 'utf8'))
-  const nested = ['UsageHistoryPanel', 'PlanUsagePanel']
+// Every component resolves `t` from the single module-level binding via
+// useWalletT(). Nothing threads a translate function through props: the
+// renderer's `locale:` seat reaches slot-registered entries only, so a nested
+// component taking `t` as a prop is the exact shape that silently renders the
+// wrong language. These assertions pin the replacement contract.
+// The whole point of the single resolution point: after apply() attaches the
+// service, flipping the active locale must change rendered copy with no
+// rebinding and no re-mount. This is the property the old prop-threaded design
+// could not guarantee (each of the three i18n defects — the cordis crash, the
+// silent-Chinese nested panels, and the untranslatable server strings — was a
+// way for one caller to miss the switch).
+test('a live locale switch changes copy without rebinding the translator', () => {
+  let definition
+  runInNewContext(readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8'), {
+    window: { __ModuleLoader__: { load(value) { definition = value } } },
+  })
+  const zh = {}, en = {}
+  for (const name of ['zh', 'en']) {
+    const sandbox = {}
+    runInNewContext(readFileSync(new URL(`../src/client/locales/${name}.js`, import.meta.url), 'utf8'), sandbox)
+    Object.assign(name === 'zh' ? zh : en, sandbox[`wallet${name === 'zh' ? 'Zh' : 'En'}`])
+  }
+  let active = 'zh', revision = 0
+  const listeners = new Set()
+  const face = {
+    register() { return () => {} },
+    bind() {
+      return (key, params) => {
+        const dict = active === 'zh' ? zh : en
+        let text = dict[key] ?? zh[key] ?? key
+        if (params) for (const [k, v] of Object.entries(params)) text = text.replaceAll(`{${k}}`, String(v))
+        return text
+      }
+    },
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener) },
+    getSnapshot() { return { revision, active } },
+  }
+  const switchTo = (locale) => { active = locale; revision += 1; for (const fn of [...listeners]) fn() }
+
+  const React = {
+    createElement: (type, props, ...children) => ({ type, props: { ...(props || {}), children: children.length === 1 ? children[0] : children } }),
+    useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
+    useRef: (initial) => ({ current: initial }),
+    useEffect() {},
+    useLayoutEffect() {},
+    useSyncExternalStore(subscribe, getSnapshot) { subscribe(() => {}); return getSnapshot() },
+  }
+  let loaded
+  runInNewContext(readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8'), {
+    window: { __ModuleLoader__: { load(value) { loaded = value } } },
+  })
+  const plugin = loaded.factory(() => React)
+  plugin.apply({
+    locale: face,
+    effect(run) { return run() },
+    inject(_names, callback) {
+      callback({ effect(run) { return run() }, slots: { register: () => () => {} } })
+    },
+  })
+
+  // Pure helpers read the module binding, so they prove the binding follows the
+  // switch even with no component involved.
+  const helpers = plugin.__testing
+  assert.match(helpers.balanceErrorText('unauthorized'), /[\u4e00-\u9fff]/, 'zh copy renders before the switch')
+  switchTo('en')
+  assert.doesNotMatch(helpers.balanceErrorText('unauthorized'), /[\u4e00-\u9fff]/,
+    'the same helper returned Chinese after switching to en — the translator is pinned to one language')
+  switchTo('zh')
+  assert.match(helpers.balanceErrorText('unauthorized'), /[\u4e00-\u9fff]/, 'switching back restores zh')
+})
+
+// Every component resolves `t` from the single module-level binding via
+// useWalletT(). Nothing threads a translate function through props: the
+// renderer's `locale:` seat reaches slot-registered entries only, so a nested
+// component taking `t` as a prop is the exact shape that silently renders the
+// wrong language. These assertions pin the replacement contract.
+test('wallet components resolve the translator locally instead of through props', () => {
+  const components = ['wallet.js', 'settings.js', 'views.js'].map((name) => ({
+    name,
+    source: readFileSync(new URL('../src/client/' + name, import.meta.url), 'utf8'),
+  }))
+  for (const { name, source } of components) {
+    assert.doesNotMatch(
+      source,
+      /props\.t\b/,
+      `${name} still reads props.t — the translator must come from useWalletT()`,
+    )
+    assert.doesNotMatch(
+      source,
+      /,\s*t\)|,\s*t\s*[,}]/,
+      `${name} still passes t as an argument — the callee reads the module binding`,
+    )
+  }
+  // Each component that renders copy must open with the hook.
+  const consumers = [
+    ['wallet.js', 'WalletChip'],
+    ['settings.js', 'WalletSettingsSection'],
+    ['settings.js', 'PeakRingFooter'],
+    ['views.js', 'UsageHistoryPanel'],
+    ['views.js', 'PlanUsagePanel'],
+  ]
+  for (const [file, component] of consumers) {
+    const source = components.find((entry) => entry.name === file).source
+    const body = source.slice(source.indexOf(`function ${component}(props)`))
+    const head = body.slice(0, body.indexOf('\n\n'))
+    assert.match(
+      head,
+      /var t = useWalletT\(\)/,
+      `${component} must resolve its translator with useWalletT()`,
+    )
+  }
+  // The nested panels must no longer be handed a translator at creation sites.
   let checked = 0
-  for (const source of sources) {
-    for (const name of nested) {
-      const re = new RegExp('React\\.createElement\\(' + name + ',\\s*\\{([^}]*)\\}', 'g')
+  for (const { name, source } of components) {
+    for (const panel of ['UsageHistoryPanel', 'PlanUsagePanel']) {
+      const re = new RegExp('React\\.createElement\\(' + panel + ',\\s*\\{([^}]*)\\}', 'g')
       let match
       while ((match = re.exec(source)) !== null) {
         checked += 1
-        assert.match(
-          match[1],
-          /(?:^|[\s,{])t:\s*t(?:[\s,}]|$)/,
-          `${name} is created without t: ${match[0].slice(0, 80)} — it will fall back to Chinese`,
-        )
+        assert.doesNotMatch(match[1], /t:\s*t\b/, `${name}: ${panel} must not receive t as a prop`)
       }
     }
   }

@@ -57,11 +57,8 @@ function sessionCostText(costCNY, currency) {
 }
 // USD spend is converted from the CNY table, so the label itself carries
 // the "estimate" meaning; no ≈ prefix. A CNY account is exact and uses "session".
-function sessionCostLabel(currency, t) {
-  // Callers inside the render tree pass the live locale seat; the bundled
-  // dictionary keeps direct (and older) callers working.
-  t = typeof t === 'function' ? t : walletT
-  return currency === 'USD' ? t('history.sessionCostLabelUsd') : t('chip.session')
+function sessionCostLabel(currency) {
+  return currency === 'USD' ? walletT('history.sessionCostLabelUsd') : walletT('chip.session')
 }
 
 // Ring clock: 24h circle, peak arcs from snapshot.pricingWindows (never
@@ -69,10 +66,7 @@ function sessionCostLabel(currency, t) {
 // Noon = 0h at 12 o'clock, clockwise. Optional size scales the 76-unit
 // viewBox down for tight hosts (sidebar foot row / rail circle); optional
 // ariaText overrides the fallback label with the full screen-reader state.
-function peakRingSVG(windows, nowHour, size, ariaText, allOffPeak, t) {
-  // Callers inside the render tree pass the live locale seat; the bundled
-  // dictionary keeps direct (and older) callers working.
-  t = typeof t === 'function' ? t : walletT
+function peakRingSVG(windows, nowHour, size, ariaText, allOffPeak) {
   var sizePx = typeof size === 'number' && size > 0 ? size : 76
   var R = 28
   var CX = 38
@@ -85,7 +79,7 @@ function peakRingSVG(windows, nowHour, size, ariaText, allOffPeak, t) {
       return React.createElement('svg', {
         width: sizePx, height: sizePx, viewBox: '0 0 76 76',
         role: 'img', className: 'dshw_peakRing',
-        'aria-label': ariaText || t('panel.weekendOffPeakAllDay')
+        'aria-label': ariaText || walletT('panel.weekendOffPeakAllDay')
       },
         React.createElement('circle', {
           key: 'weekend-off', cx: CX, cy: CY, r: R, fill: 'none',
@@ -96,7 +90,7 @@ function peakRingSVG(windows, nowHour, size, ariaText, allOffPeak, t) {
     return React.createElement('svg', {
       width: sizePx, height: sizePx, viewBox: '0 0 76 76',
       role: 'img', className: 'dshw_peakRing',
-      'aria-label': ariaText || t('panel.peakWindowsUnconfigured')
+      'aria-label': ariaText || walletT('panel.peakWindowsUnconfigured')
     },
       React.createElement('circle', { key: 'neutral', cx: CX, cy: CY, r: R, fill: 'none', className: 'dshw_ringNeutral', strokeWidth: 4 }))
   }
@@ -160,7 +154,7 @@ function peakRingSVG(windows, nowHour, size, ariaText, allOffPeak, t) {
   return React.createElement('svg', {
     width: sizePx, height: sizePx, viewBox: '0 0 76 76',
     role: 'img', className: 'dshw_peakRing',
-    'aria-label': ariaText || (inPeak ? t('panel.currentlyPeak') : t('panel.currentlyOffPeak'))
+    'aria-label': ariaText || (inPeak ? walletT('panel.currentlyPeak') : walletT('panel.currentlyOffPeak'))
   }, children)
 }
 
@@ -199,20 +193,17 @@ function selectBalanceInfo(balance) {
   return balance.balances[0]
 }
 
-function balanceErrorText(error, t) {
-  // Callers inside the render tree pass the live locale seat; the bundled
-  // dictionary keeps direct (and older) callers working.
-  t = typeof t === 'function' ? t : walletT
+function balanceErrorText(error) {
   switch (error) {
-    case 'no-credentials': return t('error.hostCredentialsUnavailable')
-    case 'no-api-key': return t('error.noDeepSeekKey')
-    case 'unauthorized': return t('error.invalidApiKey')
-    case 'rate-limited': return t('error.balanceRateLimited')
-    case 'timeout': return t('error.balanceTimeout')
-    case 'invalid-response': return t('error.balanceInvalidData')
-    case 'balance-unavailable': return t('error.balanceUnavailable')
-    case 'upstream-unavailable': return t('error.balanceApiUnavailable')
-    default: return t('error.balanceUnavailable')
+    case 'no-credentials': return walletT('error.hostCredentialsUnavailable')
+    case 'no-api-key': return walletT('error.noDeepSeekKey')
+    case 'unauthorized': return walletT('error.invalidApiKey')
+    case 'rate-limited': return walletT('error.balanceRateLimited')
+    case 'timeout': return walletT('error.balanceTimeout')
+    case 'invalid-response': return walletT('error.balanceInvalidData')
+    case 'balance-unavailable': return walletT('error.balanceUnavailable')
+    case 'upstream-unavailable': return walletT('error.balanceApiUnavailable')
+    default: return walletT('error.balanceUnavailable')
   }
 }
 
@@ -322,10 +313,8 @@ function readNotifyConfig() {
  * waits until the current one closes.
  */
 function installCompletionNotifier(ctx) {
-  // Notifications run outside the renderer's slot seats, so resolve the
-  // translator from the locale service directly and fall back to the
-  // bundled dictionary on hosts that ship no locale face.
-  var t = ctx && ctx.locale && typeof ctx.locale.bind === 'function' ? ctx.locale.bind(WALLET_NS) : walletT
+  // Notifications run outside every render tree, so they read the same
+  // module-level binding the components use — no seat, no parameter.
   if (typeof window === 'undefined' || !ctx.sessions || !ctx.sessions.list) return function () {}
   var stopped = false
   var leader = false
@@ -366,7 +355,7 @@ function installCompletionNotifier(ctx) {
     }
     var item = active.item
     var remaining = queue.length
-    var body = item.title + (remaining > 0 ? t('notify.moreWaitingPrefix') + remaining + t('notify.moreWaitingSuffix') : t('notify.clickToOpen'))
+    var body = item.title + (remaining > 0 ? walletT('notify.moreWaitingPrefix') + remaining + walletT('notify.moreWaitingSuffix') : walletT('notify.clickToOpen'))
     if (active.timer !== null) clearTimeout(active.timer)
     if (active.notification) {
       active.notification.onclose = null
@@ -375,7 +364,7 @@ function installCompletionNotifier(ctx) {
     }
     var notification
     try {
-      notification = compatibility.notify(t('notify.conversationCompleteTitle'), {
+      notification = compatibility.notify(walletT('notify.conversationCompleteTitle'), {
         body: body,
         tag: 'dsh-harness-completion',
         requireInteraction: config.timeout === 0
@@ -410,13 +399,13 @@ function installCompletionNotifier(ctx) {
 
   function enqueue(id, title) {
     if (active !== null && active.item.id === id) {
-      active.item = { id: id, title: title || t('notify.untitledConversation') }
+      active.item = { id: id, title: title || walletT('notify.untitledConversation') }
       presentActive()
       return
     }
     if (queuedIds.has(id)) return
     queuedIds.add(id)
-    queue.push({ id: id, title: title || t('notify.untitledConversation') })
+    queue.push({ id: id, title: title || walletT('notify.untitledConversation') })
     if (active !== null) presentActive()
     else showNext()
   }
@@ -701,18 +690,15 @@ function historyHeatLevel(day, maximum, metric) {
   return 1
 }
 
-function historyMoney(value, t) {
-  // Callers inside the render tree pass the live locale seat; the bundled
-  // dictionary keeps direct (and older) callers working.
-  t = typeof t === 'function' ? t : walletT
-  return value === null || value === undefined ? t('history.unpriced') : fmtCurrency(value, 'CNY')
+function historyMoney(value) {
+  return value === null || value === undefined ? walletT('history.unpriced') : fmtCurrency(value, 'CNY')
 }
 
 function UsageHistoryPanel(props) {
   props = props || {}
-  // `t` arrives through the renderer's locale seat when the slot registration
-  // declared `locale:`; the dictionary fallback keeps older hosts working.
-  var t = typeof props.t === 'function' ? props.t : walletT
+  // Resolve `t` here rather than accepting it as a prop: a nested component is
+  // not a slot entry, so the renderer's locale seat never reaches it.
+  var t = useWalletT()
   var sessionId = typeof props.sessionId === 'string' ? props.sessionId : null
   var alwaysOpen = props.alwaysOpen === true
   var [open, setOpen] = React.useState(alwaysOpen)
@@ -845,8 +831,8 @@ function UsageHistoryPanel(props) {
           tabIndex: day.calls > 0 || isSelected || isToday ? 0 : -1,
           className: 'dshw_historyCell dshw_historyCell' + level + (isToday ? ' dshw_historyCellToday' : '') + (isSelected ? ' dshw_historyCellSelected' : ''),
           style: { gridColumn: String(Math.floor((index + firstWeekday) / 7) + 1), gridRow: String(weekday + 1) },
-          title: day.date + ' · ' + fmtTokens(day.totalTokens) + t('history.tokenOfficialFragment') + (day.cost === null ? t('history.unpriced') : historyMoney(day.cost, t)) + (customCostsText(day.customCosts) ? t('history.thirdPartyEstimateFragment') + customCostsText(day.customCosts) : '') + ' · ' + day.calls + t('history.callsSuffix'),
-          'aria-label': day.date + t('history.dayAriaComma') + (metric === 'cost' ? ((day.cost === null ? t('history.officiallyUnpriced') : historyMoney(day.cost, t)) + (customCostsText(day.customCosts) ? t('history.thirdPartyEstimateInline') + customCostsText(day.customCosts) : '')) : fmtTokens(day.totalTokens) + ' token') + t('history.dayAriaComma') + day.calls + t('history.callsSuffix'),
+          title: day.date + ' · ' + fmtTokens(day.totalTokens) + t('history.tokenOfficialFragment') + (day.cost === null ? t('history.unpriced') : historyMoney(day.cost)) + (customCostsText(day.customCosts) ? t('history.thirdPartyEstimateFragment') + customCostsText(day.customCosts) : '') + ' · ' + day.calls + t('history.callsSuffix'),
+          'aria-label': day.date + t('history.dayAriaComma') + (metric === 'cost' ? ((day.cost === null ? t('history.officiallyUnpriced') : historyMoney(day.cost)) + (customCostsText(day.customCosts) ? t('history.thirdPartyEstimateInline') + customCostsText(day.customCosts) : '')) : fmtTokens(day.totalTokens) + ' token') + t('history.dayAriaComma') + day.calls + t('history.callsSuffix'),
           'aria-selected': isSelected,
           'aria-current': isToday ? 'date' : undefined,
           onClick: function () { loadHistory(day.date) }
@@ -863,7 +849,7 @@ function UsageHistoryPanel(props) {
         : breakdown.map(function (row) {
           return React.createElement('div', { key: row.provider + ':' + row.model, className: 'dshw_historyDetailRow' },
             React.createElement('span', { className: 'dshw_historyDetailName', title: row.provider + ' · ' + row.model }, row.model),
-            React.createElement('span', null, fmtTokens(row.totalTokens) + ' · ' + row.calls + t('history.callsInlineSuffix') + (row.cost === null ? '' : ' · ' + historyMoney(row.cost, t)) + (row.customCost ? t('history.estimateInlineFragment') + fmtCurrency(row.customCost.cost, row.customCost.currency) : '')))
+            React.createElement('span', null, fmtTokens(row.totalTokens) + ' · ' + row.calls + t('history.callsInlineSuffix') + (row.cost === null ? '' : ' · ' + historyMoney(row.cost)) + (row.customCost ? t('history.estimateInlineFragment') + fmtCurrency(row.customCost.cost, row.customCost.currency) : '')))
         })
       body = React.createElement(React.Fragment, null,
         React.createElement('div', { className: 'dshw_historySummary' },
@@ -890,7 +876,7 @@ function UsageHistoryPanel(props) {
         selected ? React.createElement('div', { className: 'dshw_historyDetail' },
           React.createElement('div', { className: 'dshw_historyDetailHeader' },
             React.createElement('strong', null, selected.date),
-            React.createElement('span', null, fmtTokens(selected.total.totalTokens) + ' token · ' + selected.total.calls + t('history.callsInlineJoiner') + historyMoney(selected.total.cost, t))),
+            React.createElement('span', null, fmtTokens(selected.total.totalTokens) + ' token · ' + selected.total.calls + t('history.callsInlineJoiner') + historyMoney(selected.total.cost))),
           detailRows) : null,
         React.createElement('div', { className: 'dshw_historyActions' },
           React.createElement('span', { className: 'dshw_muted' }, notice || t('history.costLockedAtUsage')),
@@ -1046,56 +1032,43 @@ function planRemainingPercent(source, id) {
  * label from the stable adapter id instead, and keep the host string only as a
  * fallback for an adapter this build does not know about.
  */
-function planSourceName(source, t) {
-  t = typeof t === 'function' ? t : walletT
+function planSourceName(source) {
   var id = source && typeof source.id === 'string' ? source.id : null
   if (id !== null) {
     var key = 'plan.sourceName.' + id
-    var translated = t(key)
+    var translated = walletT(key)
     // An unresolved key echoes itself; fall through to the host string then.
     if (translated !== key) return translated
   }
   return source && typeof source.name === 'string' ? source.name : ''
 }
 
-function providerDisplayName(mode, t) {
-  // Callers inside the render tree pass the live locale seat; the bundled
-  // dictionary keeps direct (and older) callers working.
-  t = typeof t === 'function' ? t : walletT
-  if (!mode || !mode.provider) return t('chip.model')
+function providerDisplayName(mode) {
+  if (!mode || !mode.provider) return walletT('chip.model')
   if (mode.kind === 'zai') return 'Z.ai'
   return mode.provider.length > 18 ? mode.provider.slice(0, 16) + '…' : mode.provider
 }
 
-function planErrorText(code, t) {
-  // Callers inside the render tree pass the live locale seat; the bundled
-  // dictionary keeps direct (and older) callers working.
-  t = typeof t === 'function' ? t : walletT
+function planErrorText(code) {
   switch (code) {
-    case 'missing-credential': return t('plan.missingCredential')
-    case 'credentials-unavailable': return t('plan.hostCredentialsUnavailable')
-    case 'invalid-credential': return t('plan.invalidCredential')
-    case 'unauthorized': return t('plan.unauthorized')
-    case 'rate-limited': return t('plan.rateLimited')
-    case 'timeout': return t('plan.timeout')
-    case 'invalid-response': return t('plan.responseFormatChanged')
-    case 'upstream-unavailable': return t('plan.apiUnavailable')
-    default: return t('plan.statusUnavailable')
+    case 'missing-credential': return walletT('plan.missingCredential')
+    case 'credentials-unavailable': return walletT('plan.hostCredentialsUnavailable')
+    case 'invalid-credential': return walletT('plan.invalidCredential')
+    case 'unauthorized': return walletT('plan.unauthorized')
+    case 'rate-limited': return walletT('plan.rateLimited')
+    case 'timeout': return walletT('plan.timeout')
+    case 'invalid-response': return walletT('plan.responseFormatChanged')
+    case 'upstream-unavailable': return walletT('plan.apiUnavailable')
+    default: return walletT('plan.statusUnavailable')
   }
 }
 
-function planLimitLabel(limit, t) {
-  // Callers inside the render tree pass the live locale seat; the bundled
-  // dictionary keeps direct (and older) callers working.
-  t = typeof t === 'function' ? t : walletT
-  return limit && limit.kind === 'tools' ? t('plan.limitMcpTools') : t('plan.limitModelTokens')
+function planLimitLabel(limit) {
+  return limit && limit.kind === 'tools' ? walletT('plan.limitMcpTools') : walletT('plan.limitModelTokens')
 }
 
-function planWindowLabel(limit, t) {
-  // Callers inside the render tree pass the live locale seat; the bundled
-  // dictionary keeps direct (and older) callers working.
-  t = typeof t === 'function' ? t : walletT
-  return limit && limit.window === 'month' ? t('plan.windowMonth') : t('plan.window5h')
+function planWindowLabel(limit) {
+  return limit && limit.window === 'month' ? walletT('plan.windowMonth') : walletT('plan.window5h')
 }
 
 function planNumber(value) {
@@ -1111,9 +1084,9 @@ function planResetLabel(value) {
 
 function PlanUsagePanel(props) {
   props = props || {}
-  // `t` arrives through the renderer's locale seat when the slot registration
-  // declared `locale:`; the dictionary fallback keeps older hosts working.
-  var t = typeof props.t === 'function' ? props.t : walletT
+  // Resolve `t` here rather than accepting it as a prop: a nested component is
+  // not a slot entry, so the renderer's locale seat never reaches it.
+  var t = useWalletT()
   var compact = props.compact === true
   var provider = typeof props.provider === 'string' ? props.provider : null
   var [open, setOpen] = React.useState(!compact)
@@ -1128,7 +1101,7 @@ function PlanUsagePanel(props) {
     fetch('/api/wallet/plans', options).then(function (resp) { return resp.json() }).then(function (json) {
       if (requestId !== requestRef.current) return
       if (json && json.ok) { setData(json); setNotice(force ? t('plan.quotaRefreshed') : null) }
-      else setNotice(json && json.error ? planErrorText(json.error, t) : t('plan.queryFailed'))
+      else setNotice(json && json.error ? planErrorText(json.error) : t('plan.queryFailed'))
     }).catch(function () { if (requestId === requestRef.current) setNotice(t('plan.queryFailed')) })
   }
 
@@ -1172,25 +1145,25 @@ function PlanUsagePanel(props) {
       var used = planNumber(limit.used)
       var total = planNumber(limit.total)
       var reset = planResetLabel(limit.resetAt)
-      var usageMeta = planWindowLabel(limit, t) + (usedPct === null ? '' : t('plan.usedSuffix') + Math.round(usedPct) + '%')
+      var usageMeta = planWindowLabel(limit) + (usedPct === null ? '' : t('plan.usedSuffix') + Math.round(usedPct) + '%')
         + (used !== null && total !== null ? ' · ' + used + ' / ' + total : '')
       return React.createElement('div', { key: limit.id, className: 'dshw_planLimit' },
         React.createElement('div', { className: 'dshw_planLimitTop' },
-          React.createElement('span', null, planLimitLabel(limit, t)),
+          React.createElement('span', null, planLimitLabel(limit)),
           React.createElement('span', null, remainingPct === null ? '—' : t('plan.remainingSuffix') + Math.round(remainingPct) + '%')),
-        React.createElement('div', { className: 'dshw_planBar', role: 'progressbar', 'aria-label': planSourceName(source, t) + ' ' + planLimitLabel(limit, t) + t('plan.remainingQuota'), 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': remainingPct === null ? undefined : Math.round(remainingPct) },
+        React.createElement('div', { className: 'dshw_planBar', role: 'progressbar', 'aria-label': planSourceName(source) + ' ' + planLimitLabel(limit) + t('plan.remainingQuota'), 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': remainingPct === null ? undefined : Math.round(remainingPct) },
           React.createElement('div', { className: fillClass, style: { width: (remainingPct === null ? 0 : remainingPct) + '%' } })),
         React.createElement('div', { className: 'dshw_planLimitMeta' },
           React.createElement('span', null, usageMeta),
           React.createElement('span', null, reset ? t('plan.resetsSuffix') + reset : t('plan.officialQuota'))))
     }) : []
     var message = source.configured === false ? t('plan.autoReadAfterModelSettings')
-      : source.error ? planErrorText(source.error, t) + (source.available ? t('plan.showingLastSuccess') : '')
+      : source.error ? planErrorText(source.error) + (source.available ? t('plan.showingLastSuccess') : '')
         : source.available ? null : t('plan.awaitingFirstQuery')
     return React.createElement('div', { key: source.id, className: 'dshw_planSource' },
       React.createElement('div', { className: 'dshw_planSourceHead' },
         React.createElement('span', null,
-          React.createElement('div', { className: 'dshw_planSourceName' }, planSourceName(source, t)),
+          React.createElement('div', { className: 'dshw_planSourceName' }, planSourceName(source)),
           React.createElement('div', { className: 'dshw_planSourceMeta' }, source.sourceDomain + (source.level ? ' · ' + source.level : '') + (source.fetchedAt ? ' · ' + new Date(source.fetchedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''))),
         React.createElement('span', { className: badgeClass }, status)),
       message ? React.createElement('div', { className: 'dshw_muted', style: { marginTop: '6px' } }, message) : null,

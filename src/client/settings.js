@@ -1,8 +1,8 @@
 function WalletSettingsSection(props) {
   props = props || {}
-  // `t` arrives through the renderer's locale seat when the slot registration
-  // declared `locale:`; the dictionary fallback keeps older hosts working.
-  var t = typeof props.t === 'function' ? props.t : walletT
+  // Resolve `t` here rather than accepting it as a prop: the renderer's
+  // locale seat and this hook both follow the host language.
+  var t = useWalletT()
   var close = typeof props.close === 'function' ? props.close : null
   var settingsSectionRef = React.useRef(null)
   var [snapshot, setSnapshot] = React.useState(null)
@@ -582,7 +582,7 @@ function WalletSettingsSection(props) {
     React.createElement('div', { className: 'dshw_settingsHeroMain' },
       React.createElement('strong', { className: 'dshw_settingsBalance' }, balanceText),
       React.createElement('span', { className: 'dshw_settingsSpend' },
-        React.createElement('span', { className: 'dshw_muted' }, sessionCostLabel(currencyCode, t)),
+        React.createElement('span', { className: 'dshw_muted' }, sessionCostLabel(currencyCode)),
         React.createElement('strong', null, sessionCost))),
     React.createElement('div', { className: 'dshw_settingsHeroMeta' },
       React.createElement('span', null, t('settings.toppedUpPrefix') + toppedText),
@@ -1025,7 +1025,7 @@ function WalletSettingsSection(props) {
       React.createElement('span', null,
         React.createElement('strong', { title: rule.provider + ' · ' + rule.model }, rule.provider + ' · ' + rule.model),
         React.createElement('span', null, rule.currency + t('settings.rateBaseIn') + rule.input + t('settings.rateCacheRead') + rule.cacheRead + t('settings.rateCacheWrite') + rule.cacheWrite + t('settings.rateOutput') + rule.output),
-        windows.length > 0 ? React.createElement('span', null, t('settings.timeOfDayPrefix') + windows.length + t('settings.windowsSuffix') + (rule.timezone || 'Asia/Shanghai') + t('settings.currentNow') + (customRateLabel(active, t))) : null),
+        windows.length > 0 ? React.createElement('span', null, t('settings.timeOfDayPrefix') + windows.length + t('settings.windowsSuffix') + (rule.timezone || 'Asia/Shanghai') + t('settings.currentNow') + (customRateLabel(active))) : null),
       React.createElement('span', { className: 'dshw_settingsInline' },
         React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: function () { editCustomPrice(rule) } }, t('settings.edit')),
         React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: usageLocked, onClick: function () { removeCustomPrice(rule) } }, t('settings.delete'))))
@@ -1038,8 +1038,8 @@ function WalletSettingsSection(props) {
       ? React.createElement('div', { className: 'dshw_priceRules' }, priceRuleRows)
       : React.createElement('div', { className: 'dshw_muted', style: { padding: '0 12px 11px' } }, t('settings.noRulesHint'))))
 
-  rows.push(React.createElement(PlanUsagePanel, { key: 'plans', compact: false, t: t }))
-  rows.push(React.createElement(UsageHistoryPanel, { key: 'history', sessionId: null, alwaysOpen: true, t: t }))
+  rows.push(React.createElement(PlanUsagePanel, { key: 'plans', compact: false }))
+  rows.push(React.createElement(UsageHistoryPanel, { key: 'history', sessionId: null, alwaysOpen: true }))
 
   // --- Account management ---
   rows.push(React.createElement('div', { key: 'acc-t', className: 'dshw_accountHeader' },
@@ -1144,11 +1144,10 @@ function WalletSettingsSection(props) {
 // user's own text and must be shown verbatim; the `base` label is copy the host
 // hardcodes and therefore cannot follow the client language, so translate it
 // from the stable `kind` instead of echoing the host string.
-function customRateLabel(active, t) {
-  t = typeof t === 'function' ? t : walletT
-  if (!active) return t('settings.baseRate')
-  if (active.kind === 'base') return t('settings.baseRate')
-  return typeof active.label === 'string' && active.label !== '' ? active.label : t('settings.baseRate')
+function customRateLabel(active) {
+  if (!active) return walletT('settings.baseRate')
+  if (active.kind === 'base') return walletT('settings.baseRate')
+  return typeof active.label === 'string' && active.label !== '' ? active.label : walletT('settings.baseRate')
 }
 
 // Wall-clock hour (0-24, fractional) inside an IANA timezone, via Intl —
@@ -1171,10 +1170,7 @@ function wallHourIn(tz, offsetMinutes, date) {
 // boundary (wrapping past midnight), the reminder dedup id, and the
 // zero-text-friendly tooltip / screen-reader strings. windows come from
 // the wallet snapshot; anything malformed collapses to the neutral state.
-function peakClockState(policy, nowHour, nowMs, t) {
-  // Callers inside the render tree pass the live locale seat; the bundled
-  // dictionary keeps direct (and older) callers working.
-  t = typeof t === 'function' ? t : walletT
+function peakClockState(policy, nowHour, nowMs) {
   var windows = policy && Array.isArray(policy.windows) ? policy.windows.filter(function (w) {
     return w && Number.isFinite(w.startHour) && Number.isFinite(w.endHour) && w.endHour > w.startHour
   }) : []
@@ -1193,21 +1189,21 @@ function peakClockState(policy, nowHour, nowMs, t) {
       ? [weekendAnchor.getUTCFullYear(), String(weekendAnchor.getUTCMonth() + 1).padStart(2, '0'), String(weekendAnchor.getUTCDate()).padStart(2, '0')].join('-')
       : 'weekend'
     var weekendTzName = policy.timezone || 'Asia/Shanghai'
-    var weekendDayLabel = day === 6 ? t('plan.saturday') : t('plan.sunday')
+    var weekendDayLabel = day === 6 ? walletT('plan.saturday') : walletT('plan.sunday')
     return {
       configured: true, windows: [], weekendOffPeak: true, inPeak: false,
       nextHour: 9,
-      ariaText: t('plan.currentlyPrefix') + weekendDayLabel + t('plan.weekendOffPeakNote'),
-      tip: t('plan.clockTipCurrent') + weekendDayLabel + t('plan.offPeakSuffix') + weekendDayLabel + t('plan.weekendHalfPriceNote') + weekendTzName,
-      periodName: t('plan.weekendOffPeak'), rateBadge: t('plan.halfPrice'),
-      countdownSummary: weekendDayLabel + t('plan.offPeakAllDay'),
-      windowSummary: weekendDayLabel + t('plan.weekendOffPeakWindow'),
+      ariaText: walletT('plan.currentlyPrefix') + weekendDayLabel + walletT('plan.weekendOffPeakNote'),
+      tip: walletT('plan.clockTipCurrent') + weekendDayLabel + walletT('plan.offPeakSuffix') + weekendDayLabel + walletT('plan.weekendHalfPriceNote') + weekendTzName,
+      periodName: walletT('plan.weekendOffPeak'), rateBadge: walletT('plan.halfPrice'),
+      countdownSummary: weekendDayLabel + walletT('plan.offPeakAllDay'),
+      windowSummary: weekendDayLabel + walletT('plan.weekendOffPeakWindow'),
       periodId: 'weekend-chain-' + weekendDateKey,
-      switchBody: t('plan.enteredWeekendOffPeak'),
+      switchBody: walletT('plan.enteredWeekendOffPeak'),
     }
   }
   if (windows.length === 0) {
-    return { configured: false, windows: [], weekendOffPeak: false, ariaText: t('panel.peakWindowsUnconfigured'), tip: t('plan.clockWindowsUnconfigured'), periodId: null }
+    return { configured: false, windows: [], weekendOffPeak: false, ariaText: walletT('panel.peakWindowsUnconfigured'), tip: walletT('plan.clockWindowsUnconfigured'), periodId: null }
   }
   var inPeak = false
   var segStart = null
@@ -1237,17 +1233,17 @@ function peakClockState(policy, nowHour, nowMs, t) {
   var winText = windows.map(function (w) { return hh(w.startHour) + '–' + hh(w.endHour) }).join(' / ')
   var tzName = policy.timezone || 'Asia/Shanghai'
   var rate = typeof policy.offPeakRate === 'number' && policy.offPeakRate > 0 ? policy.offPeakRate : 0.5
-  var rateWord = rate === 0.5 ? t('plan.halfPrice') : '×' + rate
+  var rateWord = rate === 0.5 ? walletT('plan.halfPrice') : '×' + rate
   var hoursLeft = (nextHour - nowHour + 24) % 24
   var msLeft = Math.round(hoursLeft * 3600000)
   var hLeft = Math.floor(msLeft / 3600000)
   var mLeft = Math.floor((msLeft % 3600000) / 60000)
-  var leftText = hLeft > 0 ? hLeft + t('plan.hoursUnit') + mLeft + t('plan.minutesShortUnit') : mLeft + t('plan.minutesUnit')
+  var leftText = hLeft > 0 ? hLeft + walletT('plan.hoursUnit') + mLeft + walletT('plan.minutesShortUnit') : mLeft + walletT('plan.minutesUnit')
   var leftShort = hLeft > 0 ? (hLeft + 'h' + (mLeft > 0 ? mLeft + 'm' : '')) : (mLeft + 'm')
-  var switchText = inPeak ? (hh(nextHour) + t('plan.inSuffix') + rateWord) : (hh(nextHour) + t('plan.resumeStandardRate'))
-  var period = inPeak ? t('plan.peak') : t('plan.offPeak') + rateWord
-  var periodName = inPeak ? t('plan.peakWindow') : t('plan.offPeakWindow')
-  var rateBadge = inPeak ? t('plan.standardRate') : (rate === 0.5 ? t('plan.halfPrice') : '×' + rate)
+  var switchText = inPeak ? (hh(nextHour) + walletT('plan.inSuffix') + rateWord) : (hh(nextHour) + walletT('plan.resumeStandardRate'))
+  var period = inPeak ? walletT('plan.peak') : walletT('plan.offPeak') + rateWord
+  var periodName = inPeak ? walletT('plan.peakWindow') : walletT('plan.offPeakWindow')
+  var rateBadge = inPeak ? walletT('plan.standardRate') : (rate === 0.5 ? walletT('plan.halfPrice') : '×' + rate)
   var offsetMinutesForDay = policy && Number.isFinite(policy.offsetMinutes) ? policy.offsetMinutes : 480
   var localWallDate = Number.isFinite(nowMs) ? new Date(nowMs + offsetMinutesForDay * 60000) : null
   var localDay = localWallDate ? localWallDate.getUTCDay() : -1
@@ -1261,11 +1257,11 @@ function peakClockState(policy, nowHour, nowMs, t) {
   var fridayAfterLastPeak = !inPeak && localDay === 5 && nowHour >= windows[windows.length - 1].endHour && nextLocalMidnightMs >= weekendRuleSince
   var mondayBeforeFirstPeak = !inPeak && localDay === 1 && nowHour < windows[0].startHour && currentLocalMidnightMs >= weekendRuleSince
   var countdownSummary = fridayAfterLastPeak
-    ? t('plan.weekendOffPeakAllDay')
-    : mondayBeforeFirstPeak ? (t('plan.leftPrefix') + leftShort + t('plan.enterPeakSuffix')) : (hh(nextHour) + t('plan.switchLeftMiddle') + leftShort)
+    ? walletT('plan.weekendOffPeakAllDay')
+    : mondayBeforeFirstPeak ? (walletT('plan.leftPrefix') + leftShort + walletT('plan.enterPeakSuffix')) : (hh(nextHour) + walletT('plan.switchLeftMiddle') + leftShort)
   var windowSummary = fridayAfterLastPeak
-    ? t('plan.weekendWindowNote')
-    : t('plan.peakPrefix') + winText
+    ? walletT('plan.weekendWindowNote')
+    : walletT('plan.peakPrefix') + winText
   // Dual timezone: billing is judged in the policy's base zone; a device
   // elsewhere also sees the local-clock span of the CURRENT segment.
   var localNote = ''
@@ -1277,16 +1273,16 @@ function peakClockState(policy, nowHour, nowMs, t) {
       var startInstant = nowMs - hoursAgo * 3600000
       var endInstant = startInstant + segLenH * 3600000
       var fmtLocal = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
-      localNote = t('plan.localTimeMiddle') + fmtLocal.format(startInstant) + '–' + fmtLocal.format(endInstant)
+      localNote = walletT('plan.localTimeMiddle') + fmtLocal.format(startInstant) + '–' + fmtLocal.format(endInstant)
     }
   } catch (e) { /* timezone introspection is best-effort */ }
   var ariaText = inPeak
-    ? t('plan.currentlyPeakPrefix') + tzName + ' ' + winText + t('plan.billedAtStandardRateSuffix')
-    : t('plan.currentlyOffPeakPrefix') + rate + t('plan.timesRateMiddle') + tzName + t('plan.peakMiddle') + winText
+    ? walletT('plan.currentlyPeakPrefix') + tzName + ' ' + winText + walletT('plan.billedAtStandardRateSuffix')
+    : walletT('plan.currentlyOffPeakPrefix') + rate + walletT('plan.timesRateMiddle') + tzName + walletT('plan.peakMiddle') + winText
   var tip = fridayAfterLastPeak
-    ? t('plan.clockTipOffPeakHalfPrice') + tzName + localNote
-    : t('plan.clockTipCurrent') + period + ' · ' + switchText + t('plan.remainingMiddle') + leftText
-      + t('plan.peakMiddleWithTz') + winText + t('plan.peakTzWrapStart') + tzName + t('plan.peakTzWrapEnd') + localNote
+    ? walletT('plan.clockTipOffPeakHalfPrice') + tzName + localNote
+    : walletT('plan.clockTipCurrent') + period + ' · ' + switchText + walletT('plan.remainingMiddle') + leftText
+      + walletT('plan.peakMiddleWithTz') + winText + walletT('plan.peakTzWrapStart') + tzName + walletT('plan.peakTzWrapEnd') + localNote
   var periodId = (inPeak ? 'p' : 'o') + Math.round(segStart * 100)
   if ((fridayAfterLastPeak || mondayBeforeFirstPeak) && localWallDate) {
     var chainAnchorDays = mondayBeforeFirstPeak ? 3 : 0
@@ -1301,7 +1297,7 @@ function peakClockState(policy, nowHour, nowMs, t) {
     countdownSummary: countdownSummary, windowSummary: windowSummary,
     // Reminder dedup id: entering this period at this boundary fires once.
     periodId: periodId,
-    switchBody: inPeak ? t('plan.enteredPeak') : t('plan.enteredOffPeakPrefix') + rate + t('plan.timesRateSuffix'),
+    switchBody: inPeak ? walletT('plan.enteredPeak') : walletT('plan.enteredOffPeakPrefix') + rate + walletT('plan.timesRateSuffix'),
   }
 }
 
@@ -1315,7 +1311,7 @@ function peakClockState(policy, nowHour, nowMs, t) {
 // In rail mode, it collapses to a 34px centered circular widget.
 function PeakRingFooter(props) {
   props = props || {}
-  var t = typeof props.t === 'function' ? props.t : walletT
+  var t = useWalletT()
   var wide = props.wide !== false
   var modelAware = props.modelAware === true
   var modelSelection = useCurrentModelSelection(props.sessionsService, props.modelDirectories, modelAware)
@@ -1500,7 +1496,7 @@ function PeakRingFooter(props) {
       if (compatibility.storage.getItem(PEAK_NOTIFY_KEY) !== 'true') return
     } catch (e) { return }
     var tzName = policy.timezone || 'Asia/Shanghai'
-    var state = peakClockState(policy, wallHourIn(tzName, policy.offsetMinutes, new Date(nowMs)), nowMs, t)
+    var state = peakClockState(policy, wallHourIn(tzName, policy.offsetMinutes, new Date(nowMs)), nowMs)
     if (!state.periodId) return
     var last = null
     try { last = compatibility.storage.getItem(PEAK_NOTIFY_LAST_KEY) } catch (e) { /* ignore */ }
@@ -1596,7 +1592,7 @@ function PeakRingFooter(props) {
   if (modelAware && !peakClockAppliesFor(providerMode, policy)) return null
   var tzName = policy && policy.timezone ? policy.timezone : 'Asia/Shanghai'
   var offsetMinutes = policy && typeof policy.offsetMinutes === 'number' ? policy.offsetMinutes : 480
-  var state = peakClockState(policy, wallHourIn(tzName, offsetMinutes, new Date(nowMs)), nowMs, t)
+  var state = peakClockState(policy, wallHourIn(tzName, offsetMinutes, new Date(nowMs)), nowMs)
 
   var bal = snapshot && snapshot.balance ? snapshot.balance : {}
   var balCurrency = bal && bal.currency ? bal.currency : 'CNY'
@@ -1605,7 +1601,7 @@ function PeakRingFooter(props) {
   var official = session && session.official ? session.official : {}
   var costValue = (official.cost === null || official.cost === undefined) ? 0 : official.cost
   var costText = sessionCostText(costValue, balCurrency)
-  var costLabel = sessionCostLabel(balCurrency, t)
+  var costLabel = sessionCostLabel(balCurrency)
   var low = snapshot && snapshot.lowBalance === true
 
   // Announce a preference change to the other surfaces (settings page, a
@@ -1817,7 +1813,7 @@ function PeakRingFooter(props) {
       onClick: handleResetDock
     }, t('settings.redockButton')) : null,
     React.createElement('div', { style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-      peakRingSVG(state.configured ? state.windows : null, wallHourIn(tzName, offsetMinutes, new Date(nowMs)), clockSize, state.ariaText, state.weekendOffPeak, t)
+      peakRingSVG(state.configured ? state.windows : null, wallHourIn(tzName, offsetMinutes, new Date(nowMs)), clockSize, state.ariaText, state.weekendOffPeak)
     ),
     !isRail ? React.createElement('div', { className: 'dshw_footRingLabel' },
       React.createElement('div', { className: 'dshw_footRingHeader' },

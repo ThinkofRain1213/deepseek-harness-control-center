@@ -1,8 +1,8 @@
 function WalletChip(props) {
   props = props || {}
-  // `t` arrives through the renderer's locale seat when the slot registration
-  // declared `locale:`; the dictionary fallback keeps older hosts working.
-  var t = typeof props.t === 'function' ? props.t : walletT
+  // Resolve `t` here rather than accepting it as a prop: the renderer's
+  // locale seat and this hook both follow the host language.
+  var t = useWalletT()
   var sessionId = props.sessionId
   var modelAware = props.modelAware === true
   var dataRef = React.useRef(null)
@@ -130,7 +130,7 @@ function WalletChip(props) {
       var now = Date.now()
       var tz = pw.timezone || 'Asia/Shanghai'
       var offMin = typeof pw.offsetMinutes === 'number' ? pw.offsetMinutes : 480
-      var st = peakClockState(pw, wallHourIn(tz, offMin, new Date(now)), now, t)
+      var st = peakClockState(pw, wallHourIn(tz, offMin, new Date(now)), now)
       if (!st.periodId) return
       var last = null
       try { last = compatibility.storage.getItem(PEAK_NOTIFY_LAST_KEY) } catch (e) { /* ignore */ }
@@ -1102,7 +1102,7 @@ function WalletChip(props) {
       if (showThird) chipTextParts.push(React.createElement('span', { key: 'third' }, t('chip.session') + ' ' + fmtTokens(thirdTokens)))
     }
   } else if (activeProviderMode.kind === 'third') {
-    var thirdProviderName = providerDisplayName(activeProviderMode, t)
+    var thirdProviderName = providerDisplayName(activeProviderMode)
     if (chipVertical) {
       chipTextParts.push(verticalMetric('provider', t('chip.model'), thirdProviderName))
       chipTextParts.push(verticalMetric('third', t('chip.session'), fmtTokens(thirdTokens)))
@@ -1116,7 +1116,7 @@ function WalletChip(props) {
   } else if (chipVertical) {
     if (showDeepSeek) {
       chipTextParts.push(verticalMetric('bal', t('chip.balance'), balanceText))
-      if (!chipCostHidden) chipTextParts.push(verticalMetric('cost', sessionCostLabel(bal.currency, t), sessionCostText(chipCostValue, bal.currency)))
+      if (!chipCostHidden) chipTextParts.push(verticalMetric('cost', sessionCostLabel(bal.currency), sessionCostText(chipCostValue, bal.currency)))
       chipTextParts.push(verticalMetric('off', t('chip.official'), fmtTokens(officialTokens)))
     }
     if (showThird) chipTextParts.push(verticalMetric('third', t('chip.third'), fmtTokens(thirdTokens)))
@@ -1125,7 +1125,7 @@ function WalletChip(props) {
       chipTextParts.push(React.createElement('span', { key: 'bal', className: 'dshw_balanceText dshw_homePrimary' },
         React.createElement('span', { className: 'dshw_homePrimaryLabel' }, t('panel.balanceLabel')),
         React.createElement('span', { className: 'dshw_homePrimaryValue' }, balanceText)))
-      if (!chipCostHidden) chipTextParts.push(React.createElement('span', { key: 'cost' }, sessionCostLabel(bal.currency, t) + ' ' + sessionCostText(chipCostValue, bal.currency)))
+      if (!chipCostHidden) chipTextParts.push(React.createElement('span', { key: 'cost' }, sessionCostLabel(bal.currency) + ' ' + sessionCostText(chipCostValue, bal.currency)))
       chipTextParts.push(React.createElement('span', { key: 'off' }, t('chip.officialTokensPrefix') + fmtTokens(officialTokens)))
     }
     if (showDeepSeek && showThird) chipTextParts.push(React.createElement('span', { key: 'sep', className: 'dshw_sep' }, '|'))
@@ -1141,7 +1141,7 @@ function WalletChip(props) {
     role: 'group',
     'data-dshw-chip': chipAppearance,
     'data-dshw-balance-only': balanceOnly ? 'true' : 'false',
-    'aria-label': activeProviderMode.kind === 'zai' ? t('chip.zaiPlanQuota') : activeProviderMode.kind === 'third' ? providerDisplayName(activeProviderMode, t) + t('chip.usageSuffix') : t('chip.deepSeekWallet'),
+    'aria-label': activeProviderMode.kind === 'zai' ? t('chip.zaiPlanQuota') : activeProviderMode.kind === 'third' ? providerDisplayName(activeProviderMode) + t('chip.usageSuffix') : t('chip.deepSeekWallet'),
     onPointerDown: onChipDown
   },
     React.createElement('button', {
@@ -1241,7 +1241,7 @@ function WalletChip(props) {
       React.createElement('span', { className: 'dshw_muted' }, t('chip.currentPricing')),
       React.createElement('span', {
         title: activeWindow ? (t('chip.weekdayBySelectedDate') + activeWindow.start + '–' + activeWindow.end + ' · ' + activeCustomPrice.timezone) : (t('chip.noWindowMatched') + activeCustomPrice.timezone)
-      }, customRateLabel(activeCustomPrice, t))))
+      }, customRateLabel(activeCustomPrice))))
   }
 
   var thresholdInput = React.createElement('input', {
@@ -1410,7 +1410,7 @@ function WalletChip(props) {
   function balanceCard() {
     if (!bal.available || !bal.balances || bal.balances.length === 0) {
       return React.createElement('div', { className: 'dshw_balanceCard' },
-        React.createElement('div', { className: 'dshw_muted' }, bal.error ? balanceErrorText(bal.error, t) : t('chip.balanceLoading')))
+        React.createElement('div', { className: 'dshw_muted' }, bal.error ? balanceErrorText(bal.error) : t('chip.balanceLoading')))
     }
     var first = selectBalanceInfo(bal)
     var others = bal.balances.filter(function (info) { return info !== first })
@@ -1431,7 +1431,7 @@ function WalletChip(props) {
         React.createElement('span', { className: 'dshw_balNum' }, fmtCurrency(first.total_balance, first.currency)),
         low ? React.createElement('span', { className: 'dshw_balWarn', title: t('chip.belowThresholdPrefix') + fmtCurrency(snapshot.threshold !== undefined ? snapshot.threshold : 0, bal.currency || 'CNY') }, t('settings.lowBalance')) : null),
       React.createElement('div', { className: 'dshw_balSub' },
-        sessionCostLabel(bal.currency, t) + ' ' + (official.cost === null ? '--' : sessionCostText(official.cost, bal.currency)),
+        sessionCostLabel(bal.currency) + ' ' + (official.cost === null ? '--' : sessionCostText(official.cost, bal.currency)),
         React.createElement('span', { className: 'dshw_balDot' }, '\u00b7'),
         subParts))
   }
@@ -1537,7 +1537,7 @@ function WalletChip(props) {
     className: 'dshw_panel',
     style: panelStyle,
     role: 'dialog',
-    'aria-label': panelProviderMode.kind === 'zai' ? t('panel.titleZai') : panelProviderMode.kind === 'third' ? t('panel.titleThird', { provider: providerDisplayName(panelProviderMode, t) }) : t('panel.title'),
+    'aria-label': panelProviderMode.kind === 'zai' ? t('panel.titleZai') : panelProviderMode.kind === 'third' ? t('panel.titleThird', { provider: providerDisplayName(panelProviderMode) }) : t('panel.title'),
     onClick: function (e) { e.stopPropagation() }
   },
     floatBtnRow,
@@ -1550,7 +1550,7 @@ function WalletChip(props) {
         React.createElement('span', null, t('chip.tokensInputPrefix') + fmtTokens(official.tokens.input) + t('chip.cacheReadPrefix') + fmtTokens(official.tokens.cacheRead) + t('chip.outputPrefix') + fmtTokens(official.tokens.output))) : null,
       React.createElement('div', { className: 'dshw_divider' })) : null,
     showThird ? React.createElement(React.Fragment, null,
-      React.createElement('div', { className: 'dshw_title' }, panelProviderMode.kind === 'zai' ? t('chip.zaiThirdPartySessionTokens') : panelProviderMode.kind === 'third' ? providerDisplayName(panelProviderMode, t) + t('chip.sessionTokensSuffix') : t('chip.thirdPartyTotal')),
+      React.createElement('div', { className: 'dshw_title' }, panelProviderMode.kind === 'zai' ? t('chip.zaiThirdPartySessionTokens') : panelProviderMode.kind === 'third' ? providerDisplayName(panelProviderMode) + t('chip.sessionTokensSuffix') : t('chip.thirdPartyTotal')),
       thirdRows,
       React.createElement('div', { className: 'dshw_divider' })) : null,
     panelShowDeepSeek ? settingsCard() : React.createElement('div', { className: 'dshw_setCard' },
@@ -1577,8 +1577,8 @@ function WalletChip(props) {
           }
         }, t('chip.clear'))),
       React.createElement('div', { className: 'dshw_divider' })) : null,
-    React.createElement(UsageHistoryPanel, { key: 'history', sessionId: sessionId, t: t }),
-    panelShowZai ? React.createElement(PlanUsagePanel, { key: 'plans-compact', compact: true, provider: panelProviderMode.provider, t: t }) : null,
+    React.createElement(UsageHistoryPanel, { key: 'history', sessionId: sessionId }),
+    panelShowZai ? React.createElement(PlanUsagePanel, { key: 'plans-compact', compact: true, provider: panelProviderMode.provider }) : null,
     panelShowDeepSeek ? accountsSection() : null,
     React.createElement('div', { style: { marginTop: '8px', textAlign: 'right', fontSize: '10px', color: 'var(--dsw-alias-label-secondary,var(--dsw-alias-label-tertiary,#667085))', userSelect: 'none' } }, 'Harness Control Center v' + WALLET_VERSION)
   )
@@ -1604,7 +1604,7 @@ function WalletChip(props) {
       className: 'dshw_float',
       style: { left: winPos.x, top: winPos.y },
       role: 'dialog',
-      'aria-label': panelProviderMode.kind === 'zai' ? t('panel.floatTitleZai') : panelShowDeepSeek ? t('panel.floatTitle') : t('panel.floatTitleThird', { provider: providerDisplayName(panelProviderMode, t) })
+      'aria-label': panelProviderMode.kind === 'zai' ? t('panel.floatTitleZai') : panelShowDeepSeek ? t('panel.floatTitle') : t('panel.floatTitleThird', { provider: providerDisplayName(panelProviderMode) })
     },
       React.createElement('div', { className: 'dshw_floatHeader', onPointerDown: onFloatDown },
         React.createElement('span', { title: t('chip.dragByTitleBar') }, t('chip.walletHoldToDrag')),
@@ -1658,8 +1658,8 @@ function WalletChip(props) {
         }
       }, panelShowDeepSeek ? t('chip.clearBalanceAndTokens') : t('chip.clearSessionTokens')),
       React.createElement('div', { className: 'dshw_divider' }),
-      React.createElement(UsageHistoryPanel, { key: 'history-float', sessionId: sessionId, t: t }),
-      panelShowZai ? React.createElement(PlanUsagePanel, { key: 'plans-float', compact: true, provider: panelProviderMode.provider, t: t }) : null,
+      React.createElement(UsageHistoryPanel, { key: 'history-float', sessionId: sessionId }),
+      panelShowZai ? React.createElement(PlanUsagePanel, { key: 'plans-float', compact: true, provider: panelProviderMode.provider }) : null,
       panelShowDeepSeek ? accountsSection() : null,
       React.createElement('div', { style: { marginTop: '8px', textAlign: 'right', fontSize: '10px', color: 'var(--dsw-alias-label-secondary,var(--dsw-alias-label-tertiary,#667085))', userSelect: 'none' } }, 'Harness Control Center v' + WALLET_VERSION)
     )
@@ -1671,18 +1671,16 @@ function WalletChip(props) {
   return React.createElement(React.Fragment, null, chipHost, snapPreviewElement, renderedPanel, confirmOverlay)
 }
 
-// The i18n probe in registerWalletLocale() reads ctx.locale; reading an
-// undeclared service throws in cordis, so this declaration is what makes the
-// fallback reachable instead of aborting the whole plugin boot.
+// `locale` is a required dependency, not an optional one: registerWalletLocale
+// reads ctx.locale, and cordis THROWS on an undeclared service read. It is also
+// what lets every slot below declare `locale:` — without an installed face the
+// renderer throws SlotAssemblyError and takes the whole plugin boot down.
 var inject = ['slots', 'sessions', 'modelDirectories', 'remote', 'remote.session', 'locale']
 
 function apply(ctx) {
-  // Registers the dictionary pair and answers whether this host actually has a
-  // locale service. `hasLocale` gates the `locale:` seat on every slot below:
-  // declaring it without a face installed makes the renderer throw
-  // SlotAssemblyError and abort the whole plugin boot.
-  var i18n = registerWalletLocale(ctx)
-  var t = i18n.t
+  // Register the dictionary pair and bind the module-level translator that
+  // every helper and component reads.
+  registerWalletLocale(ctx)
 
   ctx.inject(['sessions'], function (scope) {
     scope.effect(function () { return installCompletionNotifier(scope) }, 'dsh-wallet: completion notifications')
@@ -1695,6 +1693,7 @@ function apply(ctx) {
         name: 'conversation.input.left',
         id: 'wallet',
         order: 130,
+        locale: WALLET_NS,
         inject: function (sessionId) {
           var directory = scope.modelDirectories.directoryFor(sessionId)
           return {
@@ -1703,7 +1702,6 @@ function apply(ctx) {
           }
         }
       }
-      if (i18n.hasLocale) chipDef.locale = i18n.ns
       return scope.slots.register(chipDef, WalletChip)
     }, 'dsh-wallet: chip registration')
   })
@@ -1717,7 +1715,8 @@ function apply(ctx) {
         name: 'settings.section',
         id: 'wallet',
         order: 40,
-        label: function () { return t('settings.nav') },
+        locale: WALLET_NS,
+        label: function () { return walletT('settings.nav') },
         inject: function () {
           return {
             modelAware: true,
@@ -1726,7 +1725,6 @@ function apply(ctx) {
           }
         }
       }
-      if (i18n.hasLocale) sectionDef.locale = i18n.ns
       return ctx.slots.register(sectionDef, WalletSettingsSection)
     })
     try {
@@ -1735,6 +1733,7 @@ function apply(ctx) {
           name: 'sidebar.footer.action',
           id: 'wallet-peak-ring',
           order: 50,
+          locale: WALLET_NS,
           inject: function () {
             return {
               modelAware: true,
@@ -1743,7 +1742,6 @@ function apply(ctx) {
             }
           }
         }
-        if (i18n.hasLocale) ringDef.locale = i18n.ns
         return ctx.slots.register(ringDef, PeakRingFooter)
       })
     } catch (e) { /* host without the sidebar footer slot */ }

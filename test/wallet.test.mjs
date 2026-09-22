@@ -167,6 +167,14 @@ function createHookRenderer() {
       else if (!(index in hooks)) hooks[index] = null
     },
     useLayoutEffect() { cursor++ },
+    // Minimal uSES stand-in: read the snapshot once. Tests render a single
+    // pass, so there is no store to subscribe to; the point is that the hook
+    // exists and keeps hook order stable.
+    useSyncExternalStore(subscribe, getSnapshot) {
+      const index = cursor++
+      if (!(index in hooks)) hooks[index] = getSnapshot()
+      return hooks[index]
+    },
   }
   return {
     React,
@@ -196,10 +204,32 @@ function findElement(node, predicate) {
   return findElement(node.props && node.props.children, predicate)
 }
 
+// Stand-in for @deepseek-ai/dsh-client-locale: `bind` resolves against the
+// bundled zh dictionary, which is what the module-level translator falls back
+// to when apply() has not attached a real service.
+function stubLocaleService() {
+  return {
+    register() { return () => {} },
+    bind() {
+      return (key, params) => {
+        let text = walletZh[key]
+        if (text === undefined) text = walletEn[key]
+        if (text === undefined) return key
+        if (params) for (const [name, value] of Object.entries(params)) text = text.replaceAll(`{${name}}`, String(value))
+        return text
+      }
+    },
+    subscribe() { return () => {} },
+    getSnapshot() { return { revision: 0, active: 'zh' } },
+  }
+}
+
 function walletComponent(bundleExports) {
   let Component
   let slot
   bundleExports.apply({
+    locale: stubLocaleService(),
+    effect(run) { return run() },
     inject(_names, callback) {
       callback({
         effect(run) { run() },
