@@ -43,11 +43,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ThinkofRain1213/deepseek-harness-control-center.git"
+    "url": "git+https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched.git"
   },
-  "homepage": "https://github.com/ThinkofRain1213/deepseek-harness-control-center#readme",
+  "homepage": "https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched#readme",
   "bugs": {
-    "url": "https://github.com/ThinkofRain1213/deepseek-harness-control-center/issues"
+    "url": "https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/issues"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"

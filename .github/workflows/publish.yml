@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing non-draft, non-prerelease GitHub Release tag to publish
+        description: Existing non-draft GitHub Release tag to publish
         required: true
         type: string
 
@@ -32,7 +32,6 @@ jobs:
           test -n "$TAG"
           RELEASE_JSON="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}")"
           test "$(jq -r .draft <<<"$RELEASE_JSON")" = "false"
-          test "$(jq -r .prerelease <<<"$RELEASE_JSON")" = "false"
           test "$(jq -r .tag_name <<<"$RELEASE_JSON")" = "$TAG"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7

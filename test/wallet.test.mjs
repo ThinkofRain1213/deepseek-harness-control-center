@@ -229,7 +229,7 @@ test('release READMEs use only approved status badges and every local Markdown t
     for (const [, , target] of images) {
       assert.match(
         target,
-        /^(?:https:\/\/img\.shields\.io\/|https:\/\/github\.com\/feibi-mochi\/deepseek-harness-control-center\/actions\/workflows\/validate\.yml\/badge\.svg$)/,
+        /^(?:https:\/\/img\.shields\.io\/|https:\/\/github\.com\/ThinkofRain1213\/deepseek-harness-wallet-patched\/actions\/workflows\/validate\.yml\/badge\.svg$)/,
         `${document} contains a non-badge image: ${target}`,
       )
     }
@@ -243,7 +243,7 @@ test('release READMEs use only approved status badges and every local Markdown t
   const rootReadme = readProjectFile('README.md')
   assert.match(
     rootReadme,
-    /\[简体中文\]\(https:\/\/github\.com\/feibi-mochi\/deepseek-harness-control-center\/blob\/[^)]+\/docs\/i18n\/README\.zh-CN\.md\)/,
+    /\[简体中文\]\(https:\/\/github\.com\/ThinkofRain1213\/deepseek-harness-wallet-patched\/blob\/[^)]+\/docs\/i18n\/README\.zh-CN\.md\)/,
     'the npm-rendered root README must use a repository-backed Chinese link',
   )
 })
@@ -268,9 +268,9 @@ test('release identity and intended npm archive inventory stay aligned', () => {
   // The fork publishes itself, so the manifest must name the fork rather than
   // upstream. This is also load-bearing for the plugin market, which resolves a
   // `file:` install's online source from this field.
-  assert.equal(pkg.repository.url, 'git+https://github.com/ThinkofRain1213/deepseek-harness-control-center.git')
-  assert.equal(pkg.homepage, 'https://github.com/ThinkofRain1213/deepseek-harness-control-center#readme')
-  assert.equal(pkg.bugs.url, 'https://github.com/ThinkofRain1213/deepseek-harness-control-center/issues')
+  assert.equal(pkg.repository.url, 'git+https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched.git')
+  assert.equal(pkg.homepage, 'https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched#readme')
+  assert.equal(pkg.bugs.url, 'https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/issues')
   assert.match(pkg.description, /monitor/i)
   assert.match(pkg.description, /recharge/i)
   assert.match(pkg.description, /reminder/i)

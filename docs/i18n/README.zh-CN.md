@@ -1,8 +1,8 @@
 # DeepSeek Harness Control Center
 
-[![npm 版本](https://img.shields.io/npm/v/deepseek-harness-wallet?label=npm&color=5965d8)](https://www.npmjs.com/package/deepseek-harness-wallet)
-[![GitHub Release](https://img.shields.io/github/v/release/feibi-mochi/deepseek-harness-control-center?label=release&color=5965d8)](https://github.com/feibi-mochi/deepseek-harness-control-center/releases)
-[![构建检查](https://github.com/feibi-mochi/deepseek-harness-control-center/actions/workflows/validate.yml/badge.svg)](https://github.com/feibi-mochi/deepseek-harness-control-center/actions/workflows/validate.yml)
+[![npm 版本](https://img.shields.io/npm/v/deepseek-harness-wallet-patched?label=npm&color=5965d8)](https://www.npmjs.com/package/deepseek-harness-wallet-patched)
+[![GitHub Release](https://img.shields.io/github/v/release/ThinkofRain1213/deepseek-harness-wallet-patched?label=release&color=5965d8)](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/releases)
+[![构建检查](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/actions/workflows/validate.yml/badge.svg)](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/actions/workflows/validate.yml)
 [![DeepSeek Harness](https://img.shields.io/badge/DeepSeek%20Harness-0.1.5--alpha.1-4aa3ff)](https://github.com/deepseek-ai/DeepSeek-Harness)
 [![MIT 许可证](https://img.shields.io/badge/license-MIT-3b7a57)](../../LICENSE)
 
@@ -17,6 +17,12 @@
 > **版本：** v0.3.13。
 
 > 如果 DeepSeek Harness Control Center 帮到了你，请考虑点一个 ⭐ Star，谢谢！
+
+> **关于本仓库**
+> 这是 [feibi-mochi/deepseek-harness-control-center](https://github.com/feibi-mochi/deepseek-harness-control-center) 的个人修补分支。上游自 2026-09-09 起未再更新，故在此维护一份可用版本。
+> - 精力有限，不保证及时关注这个仓库，且随时可能断更
+> - 欢迎提 issue，但回复可能很慢
+> - 上游若恢复维护，我会优先回归上游
 
 ## 能做什么
 
@@ -64,13 +70,13 @@ DeepSeek Harness Wallet 适合希望在对话时查看余额、比较模型开�
 从 npm 安装：
 
 ```sh
-dsh plugin --profile web add deepseek-harness-wallet
+dsh plugin --profile web add deepseek-harness-wallet-patched
 ```
 
 或直接安装 GitHub `main`：
 
 ```sh
-dsh plugin --profile web add github:feibi-mochi/deepseek-harness-control-center
+dsh plugin --profile web add github:ThinkofRain1213/deepseek-harness-wallet-patched
 ```
 
 重启 `dsh web`，然后强制刷新页面。
@@ -86,20 +92,18 @@ dsh plugin --profile web add github:feibi-mochi/deepseek-harness-control-center
 ### 更新
 
 ```sh
-dsh plugin --profile web update deepseek-harness-wallet
+dsh plugin --profile web update deepseek-harness-wallet-patched
 ```
 
 ### 卸载
 
 ```sh
-dsh plugin --profile web remove deepseek-harness-wallet
+dsh plugin --profile web remove deepseek-harness-wallet-patched
 ```
-
-> 包名在 0.1.1 从 `dsh-wallet` 改为 `deepseek-harness-wallet`。如果之前装的是旧包名，请先执行 `dsh plugin --profile web remove dsh-wallet` 移除旧版，避免两份副本同时注册 UI。
 
 ## 浏览器、桌面端与系统兼容
 
-本轮范围见 [0.3.13 兼容验证](https://github.com/feibi-mochi/deepseek-harness-control-center/blob/main/docs/compatibility-0.3.13.md)。官方 0.1.5-alpha.1 未提供本插件要求的永久删除能力，相关开关保持禁用；旧源码的会话删除补丁不能直接用于新版。
+本轮范围见 [0.3.13 兼容验证](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/blob/main/docs/compatibility-0.3.13.md)。官方 0.1.5-alpha.1 未提供本插件要求的永久删除能力，相关开关保持禁用；旧源码的会话删除补丁不能直接用于新版。
 
 客户端没有按操作系统写死的功能分支，而是检查所需的 Web 与宿主能力；这让同一套代码容易迁移，但必须区分“具备兼容条件”和“已经在真机逐项验证”：
 
@@ -130,7 +134,7 @@ window.__DSH_WALLET_ADAPTER__ = {
 
 `notify()` 可以返回类通知句柄、返回其 Promise，也可以使用无需返回值的原生 API。载荷中的 `onClick` / `onClose` 让 Electron IPC、Tauri 通知等原生桥把点击和关闭事件传回钱包；返回 `false` 时钱包会改用浏览器回退。部分 Tauri 或 macOS 宿主可通过 `requestNotificationPermission()` 请求原生通知权限。`openExternal()` 返回 `false` 时钱包会继续尝试浏览器打开方式。只有宿主真正实现钱包开关和会话菜单动作时才能声明 `permanentDelete`；兼容宿主会自动声明，不兼容宿主显示禁用状态。所有平台差异集中在 `src/client/core.js` 的 `createCompatibilityAdapter()`；以后适配新的桌面壳时，不需要修改钱包计费与界面逻辑。
 
-对于可以重新构建的 DSH 宿主，npm 包和仓库同时附带一套版本化的 [Agent 永久删除适配资料](../../integrations/dsh-session-delete/README.zh-CN.md)：包含中英文说明、完整 Agent 提示词、只读预检、兼容清单、上游声明和固定基线参考补丁。它不是通用安装器；DSH 提交不同就必须阅读现有源码并按语义迁移，封闭源码或不能重新构建的桌面端不在支持范围内。
+对于可以重新构建的 DSH 宿主，仓库附带一套版本化的 [Agent 永久删除适配资料](../../integrations/dsh-session-delete/README.zh-CN.md)：包含中英文说明、完整 Agent 提示词、只读预检、兼容清单、上游声明和固定基线参考补丁。它不是通用安装器；DSH 提交不同就必须阅读现有源码并按语义迁移，封闭源码或不能重新构建的桌面端不在支持范围内。
 
 ## 可选宿主集成
 
@@ -138,7 +142,7 @@ window.__DSH_WALLET_ADAPTER__ = {
 
 ## 数据与安全
 
-客户端开发源码位于 `src/client/` 的五个文件，`lib/client.js` 是已提交的加载产物。修改后运行 `npm ci`、`npm run build:client` 和 `npm run check:client`；安装时无需构建。各版本的隔离验证范围见 [0.3.10 兼容证据](https://github.com/feibi-mochi/deepseek-harness-control-center/blob/main/docs/compatibility-0.3.10.md)。
+客户端开发源码位于 `src/client/` 的五个文件，`lib/client.js` 是已提交的加载产物。修改后运行 `npm ci`、`npm run build:client` 和 `npm run check:client`；安装时无需构建。各版本的隔离验证范围见 [0.3.10 兼容证据](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/blob/main/docs/compatibility-0.3.10.md)。
 
 | 项目 | 行为 |
 | --- | --- |

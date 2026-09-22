@@ -1,8 +1,8 @@
 # DeepSeek Harness Control Center
 
-[![npm version](https://img.shields.io/npm/v/deepseek-harness-wallet?label=npm&color=5965d8)](https://www.npmjs.com/package/deepseek-harness-wallet)
-[![GitHub release](https://img.shields.io/github/v/release/feibi-mochi/deepseek-harness-control-center?label=release&color=5965d8)](https://github.com/feibi-mochi/deepseek-harness-control-center/releases)
-[![CI](https://github.com/feibi-mochi/deepseek-harness-control-center/actions/workflows/validate.yml/badge.svg)](https://github.com/feibi-mochi/deepseek-harness-control-center/actions/workflows/validate.yml)
+[![npm version](https://img.shields.io/npm/v/deepseek-harness-wallet-patched?label=npm&color=5965d8)](https://www.npmjs.com/package/deepseek-harness-wallet-patched)
+[![GitHub release](https://img.shields.io/github/v/release/ThinkofRain1213/deepseek-harness-wallet-patched?label=release&color=5965d8)](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/releases)
+[![CI](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/actions/workflows/validate.yml/badge.svg)](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/actions/workflows/validate.yml)
 [![DeepSeek Harness](https://img.shields.io/badge/DeepSeek%20Harness-0.1.5--alpha.1-4aa3ff)](https://github.com/deepseek-ai/DeepSeek-Harness)
 [![License: MIT](https://img.shields.io/badge/license-MIT-3b7a57)](./LICENSE)
 
@@ -10,13 +10,19 @@
 
 `Balance ¥5.89 · Session ¥0.72 · Official 18.8M | Third-party 800K · ↗ Recharge`
 
-[English](./README.md) · [简体中文](https://github.com/feibi-mochi/deepseek-harness-control-center/blob/main/docs/i18n/README.zh-CN.md) · [Install](#install) · [Compatibility](#browser-desktop-and-os-compatibility) · [Changelog](./CHANGELOG.md)
+[English](./README.md) · [简体中文](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/blob/main/docs/i18n/README.zh-CN.md) · [Install](#install) · [Compatibility](#browser-desktop-and-os-compatibility) · [Changelog](./CHANGELOG.md)
 
 > A local-first companion that keeps account status, per-conversation usage, completion reminders, official recharge, flexible layout, and host-gated session controls beside the DSH composer.
 
 > **Version:** v0.3.13.
 
 > If DeepSeek Harness Control Center helps you, please consider leaving a ⭐ Star. Thank you!
+
+> **About this repository**
+> A personal patched fork of [feibi-mochi/deepseek-harness-control-center](https://github.com/feibi-mochi/deepseek-harness-control-center). Upstream has not been updated since 2026-09-09, so a working version is kept here.
+> - My time is limited: I do not guarantee timely attention to this repository, and it may stop being updated at any time
+> - Issues are welcome, though replies may be slow
+> - If upstream resumes maintenance, I will prefer to return to it
 
 ## What it does
 
@@ -64,13 +70,13 @@ DeepSeek Harness Wallet is for users who want to check balances during a convers
 From npm:
 
 ```sh
-dsh plugin --profile web add deepseek-harness-wallet
+dsh plugin --profile web add deepseek-harness-wallet-patched
 ```
 
 or from GitHub `main`:
 
 ```sh
-dsh plugin --profile web add github:feibi-mochi/deepseek-harness-control-center
+dsh plugin --profile web add github:ThinkofRain1213/deepseek-harness-wallet-patched
 ```
 
 Restart `dsh web`, then hard-refresh the page.
@@ -86,20 +92,18 @@ Restart `dsh web`, then hard-refresh the page.
 ### Update
 
 ```sh
-dsh plugin --profile web update deepseek-harness-wallet
+dsh plugin --profile web update deepseek-harness-wallet-patched
 ```
 
 ### Remove
 
 ```sh
-dsh plugin --profile web remove deepseek-harness-wallet
+dsh plugin --profile web remove deepseek-harness-wallet-patched
 ```
-
-> The package was renamed from `dsh-wallet` to `deepseek-harness-wallet` in 0.1.1. If you installed the old name, remove it with `dsh plugin --profile web remove dsh-wallet` first.
 
 ## Browser, desktop, and OS compatibility
 
-See [0.3.13 compatibility evidence](https://github.com/feibi-mochi/deepseek-harness-control-center/blob/main/docs/compatibility-0.3.13.md). The official 0.1.5-alpha.1 host does not provide this plugin’s permanent-delete capability, so that switch stays disabled; the old source integration patch is not a drop-in update.
+See [0.3.13 compatibility evidence](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/blob/main/docs/compatibility-0.3.13.md). The official 0.1.5-alpha.1 host does not provide this plugin’s permanent-delete capability, so that switch stays disabled; the old source integration patch is not a drop-in update.
 
 The client contains no operating-system-specific feature branch; it checks the Web and host capabilities it needs. That makes the same code portable, but **portable code is not the same as real-device verification**:
 
@@ -130,7 +134,7 @@ window.__DSH_WALLET_ADAPTER__ = {
 
 `notify()` may return a notification-like handle, a Promise for one, or nothing for fire-and-forget native APIs. The payload also includes `onClick` / `onClose` callbacks so Electron IPC, Tauri notification actions, and other desktop bridges can return events without copying wallet logic; returning `false` asks the wallet to use its browser fallback. `requestNotificationPermission()` is optional for hosts such as Tauri and macOS that require a native permission request. Returning `false` from `openExternal()` likewise asks the wallet to try the browser fallback. Declare `permanentDelete` only when the host actually implements the wallet preference and session-menu action; compatible hosts advertise it automatically, while unsupported hosts show a disabled control instead of a switch that has no effect. Platform adaptations are intentionally confined to `createCompatibilityAdapter()` in `src/client/core.js`, so an Agent can add a new wrapper without editing wallet accounting or UI logic.
 
-For buildable DSH hosts, the npm package and repository include a versioned [Agent-assisted permanent-delete integration kit](./integrations/dsh-session-delete/README.md) with a Chinese guide, complete Agent prompt, read-only preflight, compatibility manifest, upstream notice, and an exact-baseline reference patch. The patch is not a universal installer: a different DSH commit must be inspected and adapted by semantics, and closed or non-rebuildable desktop applications remain unsupported.
+For buildable DSH hosts, the repository includes a versioned [Agent-assisted permanent-delete integration kit](./integrations/dsh-session-delete/README.md) with a Chinese guide, complete Agent prompt, read-only preflight, compatibility manifest, upstream notice, and an exact-baseline reference patch. The patch is not a universal installer: a different DSH commit must be inspected and adapted by semantics, and closed or non-rebuildable desktop applications remain unsupported.
 
 ## Optional host integration
 
@@ -138,7 +142,7 @@ Permanent session deletion is implemented by the host, not the wallet. Its switc
 
 ## Data & trust
 
-Client development now uses five readable files under `src/client/` and a committed `lib/client.js` artifact; run `npm ci`, `npm run build:client`, and `npm run check:client` after source edits. Installation runs no build scripts. Exact-version smoke checks are documented in [0.3.10 compatibility evidence](https://github.com/feibi-mochi/deepseek-harness-control-center/blob/main/docs/compatibility-0.3.10.md).
+Client development now uses five readable files under `src/client/` and a committed `lib/client.js` artifact; run `npm ci`, `npm run build:client`, and `npm run check:client` after source edits. Installation runs no build scripts. Exact-version smoke checks are documented in [0.3.10 compatibility evidence](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/blob/main/docs/compatibility-0.3.10.md).
 
 | Item | Behavior |
 | --- | --- |

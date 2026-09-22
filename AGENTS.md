@@ -15,10 +15,10 @@ A zero-runtime-dependency DeepSeek Harness Web plugin: a wallet chip beside the 
 ## Install
 
 ```sh
-dsh plugin --profile web add deepseek-harness-wallet
+dsh plugin --profile web add deepseek-harness-wallet-patched
 ```
 
-(The npm registry is the primary channel; fall back to `github:feibi-mochi/deepseek-harness-control-center` when npm is unavailable.)
+(The npm registry is the primary channel; fall back to `github:ThinkofRain1213/deepseek-harness-wallet-patched` when npm is unavailable.)
 
 Then **restart `dsh web` and hard-refresh the page** — the client half injects on page load; without a hard refresh the chip will not appear.
 
