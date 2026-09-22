@@ -1,5 +1,8 @@
 function WalletChip(props) {
   props = props || {}
+  // `t` arrives through the renderer's locale seat when the slot registration
+  // declared `locale:`; the dictionary fallback keeps older hosts working.
+  var t = typeof props.t === 'function' ? props.t : walletT
   var sessionId = props.sessionId
   var modelAware = props.modelAware === true
   var dataRef = React.useRef(null)
@@ -127,7 +130,7 @@ function WalletChip(props) {
       var now = Date.now()
       var tz = pw.timezone || 'Asia/Shanghai'
       var offMin = typeof pw.offsetMinutes === 'number' ? pw.offsetMinutes : 480
-      var st = peakClockState(pw, wallHourIn(tz, offMin, new Date(now)), now)
+      var st = peakClockState(pw, wallHourIn(tz, offMin, new Date(now)), now, t)
       if (!st.periodId) return
       var last = null
       try { last = compatibility.storage.getItem(PEAK_NOTIFY_LAST_KEY) } catch (e) { /* ignore */ }
@@ -135,7 +138,7 @@ function WalletChip(props) {
       try { compatibility.storage.setItem(PEAK_NOTIFY_LAST_KEY, st.periodId) } catch (e) { /* ignore */ }
       if (last === null) return
       try {
-        compatibility.notify('DeepSeek Harness · 峰谷切换', {
+        compatibility.notify(t('panel.peakSwitchTitle'), {
           body: st.switchBody, tag: 'dsh-wallet-peak'
         })
       } catch (e) { /* ignore */ }
@@ -234,7 +237,7 @@ function WalletChip(props) {
           if (!notifiedRef.current) {
             try {
               var lowCurrency = json.balance && json.balance.currency ? json.balance.currency : 'CNY'
-              var lowNotice = compatibility.notify('DeepSeek 余额不足', { body: '余额已低于提醒线 ' + fmtCurrency(json.threshold, lowCurrency), tag: 'dsh-wallet-low' })
+              var lowNotice = compatibility.notify(t('chip.deepSeekLowBalance'), { body: t('chip.balanceBelowThreshold') + fmtCurrency(json.threshold, lowCurrency), tag: 'dsh-wallet-low' })
               if (lowNotice) {
                 lowNoticeRef.current = lowNotice
                 notifiedRef.current = true
@@ -805,11 +808,11 @@ function WalletChip(props) {
       if (json && json.ok) {
         setAccounts(json)
         setAccountsError(json.storage && json.storage.locked
-          ? '账户加密文件无法解密，已锁定写入以保护原数据'
+          ? t('settings.accountEncryptedFileLocked')
           : null)
       }
     }).catch(function () {
-      setAccountsError('\u8d26\u6237\u5217\u8868\u52a0\u8f7d\u5931\u8d25')
+      setAccountsError(t('chip.accountsLoadFailed'))
     })
   }
 
@@ -818,7 +821,7 @@ function WalletChip(props) {
     var name = addName.trim()
     var key = addKey.trim()
     if (name === '' || key === '') {
-      setAccountNotice('\u8bf7\u586b\u5199\u540d\u79f0\u548c API Key')
+      setAccountNotice(t('chip.nameAndApiKeyRequired'))
       return
     }
     setAdding(true)
@@ -833,8 +836,8 @@ function WalletChip(props) {
         setAddName('')
         setAddKey('')
         setAccountNotice(json.synced
-          ? '\u5df2\u6dfb\u52a0\u5e76\u8bbe\u4e3a\u5f53\u524d\u8d26\u6237'
-          : '\u5df2\u6dfb\u52a0' + (json.syncError ? '\uff08\u540c\u6b65\u5931\u8d25: ' + json.syncError + '\uff09' : ''))
+          ? t('settings.addedAndSetAsCurrent')
+          : t('settings.added') + (json.syncError ? t('chip.syncFailedParen') + json.syncError + '\uff09' : ''))
         loadAccounts()
         refreshBalance()
         try {
@@ -843,17 +846,17 @@ function WalletChip(props) {
           }
         } catch (e) { /* ignore */ }
       } else {
-        setAccountNotice((json && json.error) || '\u6dfb\u52a0\u5931\u8d25')
+        setAccountNotice((json && json.error) || t('settings.addFailed'))
       }
     }).catch(function () {
       setAdding(false)
-      setAccountNotice('\u6dfb\u52a0\u5931\u8d25')
+      setAccountNotice(t('settings.addFailed'))
     })
   }
 
   function activateAccount(id, name) {
     if (switchingId !== null) return
-    if (!window.confirm('\u5207\u6362\u5230\u8d26\u6237\u300c' + name + '\u300d\uff1f\r\n\u5207\u6362\u540e\uff0c\u540e\u7eed LLM \u8bf7\u6c42\u5c06\u4f7f\u7528\u8be5\u8d26\u6237\u7684 Key \u8ba1\u8d39\u3002')) return
+    if (!window.confirm(t('chip.switchToAccount') + name + t('chip.switchAccountConfirmSuffix'))) return
     setSwitchingId(id)
     setAccountNotice(null)
     fetch('/api/wallet/accounts/activate', {
@@ -863,7 +866,7 @@ function WalletChip(props) {
     }).then(function (resp) { return resp.json() }).then(function (json) {
       setSwitchingId(null)
       if (json && json.ok) {
-        setAccountNotice('\u5df2\u5207\u6362\u5230\u300c' + json.account.name + '\u300d')
+        setAccountNotice(t('settings.switchedToAccountPrefix') + json.account.name + '\u300d')
         loadAccounts()
         refreshBalance()
         try {
@@ -871,27 +874,27 @@ function WalletChip(props) {
             window.dispatchEvent(new CustomEvent('dshw-refresh'))
           }
         } catch (e) { /* ignore */ }
-        // 切换账号: 解锁 + 激活响应自带阈值, 输入框零等待跳转
+        // Switch account: unlock + the activate response carries the threshold (zero-wait jump).
         thresholdInitializedRef.current = false
         if (json.threshold !== undefined && json.threshold !== null) setThresholdDraft(json.threshold.toFixed(2))
       } else {
-        setAccountNotice((json && json.error) || '\u5207\u6362\u5931\u8d25')
+        setAccountNotice((json && json.error) || t('settings.switchFailed'))
       }
     }).catch(function () {
       setSwitchingId(null)
-      setAccountNotice('\u5207\u6362\u5931\u8d25')
+      setAccountNotice(t('settings.switchFailed'))
     })
   }
 
   function removeAccount(id, name) {
-    if (!window.confirm('\u5220\u9664\u8d26\u6237\u300c' + name + '\u300d\uff1f\r\n\u4ec5\u5220\u9664\u672c\u63d2\u4ef6\u7684\u8d26\u6237\u8bb0\u5f55\uff0c\u4e0d\u5f71\u54cd .credentials.yaml \u4e2d\u5df2\u6709\u7684 Key\u3002')) return
+    if (!window.confirm(t('settings.deleteAccountPrefix') + name + t('chip.deleteAccountConfirmSuffix'))) return
     fetch('/api/wallet/accounts/remove', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id: id })
     }).then(function (resp) { return resp.json() }).then(function (json) {
       if (json && json.ok) {
-        setAccountNotice('\u5df2\u5220\u9664')
+        setAccountNotice(t('settings.deleted'))
         loadAccounts()
         refreshBalance()
         try {
@@ -900,10 +903,10 @@ function WalletChip(props) {
           }
         } catch (e) { /* ignore */ }
       } else {
-        setAccountNotice((json && json.error) || '\u5220\u9664\u5931\u8d25')
+        setAccountNotice((json && json.error) || t('settings.deleteFailed'))
       }
     }).catch(function () {
-      setAccountNotice('\u5220\u9664\u5931\u8d25')
+      setAccountNotice(t('settings.deleteFailed'))
     })
   }
 
@@ -911,16 +914,16 @@ function WalletChip(props) {
     var activeName = snapshot.accounts && snapshot.accounts.activeName ? snapshot.accounts.activeName : null
     var list = accounts && accounts.accounts ? accounts.accounts : []
     var children = []
-    children.push(React.createElement('div', { key: 't', className: 'dshw_title' }, '\u8d26\u6237\u7ba1\u7406'))
+    children.push(React.createElement('div', { key: 't', className: 'dshw_title' }, t('settings.accountManagement')))
     if (accountsError) {
       children.push(React.createElement('div', { key: 'e', className: 'dshw_muted' }, accountsError))
     } else {
       children.push(React.createElement('div', { key: 'cur', className: 'dshw_row' },
-        React.createElement('span', { className: 'dshw_muted' }, '\u5f53\u524d\u8d26\u6237'),
-        React.createElement('span', null, activeName ? activeName + ' \u00b7 LLM \u8ba1\u8d39' : '\u8ddf\u968f\u7cfb\u7edf Key')))
+        React.createElement('span', { className: 'dshw_muted' }, t('chip.currentAccount')),
+        React.createElement('span', null, activeName ? activeName + t('chip.llmBillingSuffix') : t('settings.followSystemKey'))))
       if (list.length === 0) {
         children.push(React.createElement('div', { key: 'none', className: 'dshw_muted' },
-          '\u6682\u65e0\u8d26\u6237\uff0c\u6dfb\u52a0\u540e\u5c06\u81ea\u52a8\u6210\u4e3a\u5f53\u524d\u8d26\u6237'))
+          t('settings.noAccountsHint')))
       }
       var acctRows = []
       list.forEach(function (acc) {
@@ -932,7 +935,7 @@ function WalletChip(props) {
         }, acc.name))
         rowChildren.push(React.createElement('span', { key: 'k', className: 'dshw_muted' }, acc.maskedKey))
         if (acc.active) {
-          rowChildren.push(React.createElement('span', { key: 'a', className: 'dshw_muted' }, '\u5f53\u524d'))
+          rowChildren.push(React.createElement('span', { key: 'a', className: 'dshw_muted' }, t('settings.current')))
         } else {
           rowChildren.push(React.createElement('button', {
             key: 's',
@@ -941,7 +944,7 @@ function WalletChip(props) {
             style: { padding: '2px 8px' },
             disabled: switchingId !== null,
             onClick: function () { activateAccount(acc.id, acc.name) }
-          }, switchingId === acc.id ? '\u2026' : '\u5207\u6362'))
+          }, switchingId === acc.id ? '\u2026' : t('settings.switch')))
         }
         rowChildren.push(React.createElement('button', {
           key: 'r',
@@ -954,13 +957,13 @@ function WalletChip(props) {
       })
       if (acctRows.length > 0) {
         children.push(React.createElement('div', { key: 'scroll', className: 'dshw_acctScroll' }, acctRows))
-        if (acctRows.length > 2) children.push(React.createElement('div', { key: 'more', className: 'dshw_acctMore' }, '共 ' + acctRows.length + ' 个账户，滑动查看更多'))
+        if (acctRows.length > 2) children.push(React.createElement('div', { key: 'more', className: 'dshw_acctMore' }, t('chip.accountsTotalPrefix') + acctRows.length + t('chip.accountsSwipeSuffix')))
       }
       children.push(React.createElement('div', { key: 'add', className: 'dshw_row', style: { gap: '4px' } },
         React.createElement('input', {
           className: 'dshw_input',
           type: 'text',
-          placeholder: '\u540d\u79f0',
+          placeholder: t('settings.name'),
           style: { width: '72px' },
           value: addName,
           onChange: function (e) { setAddName(e.target.value) }
@@ -978,7 +981,7 @@ function WalletChip(props) {
           className: 'dshw_btn dshw_btnPrimary',
           disabled: adding,
           onClick: addAccount
-        }, adding ? '\u2026' : '\u6dfb\u52a0')))
+        }, adding ? '\u2026' : t('settings.add'))))
     }
     if (accountNotice) {
       children.push(React.createElement('div', {
@@ -1070,64 +1073,64 @@ function WalletChip(props) {
   var chipCostValue = (official.cost === null || official.cost === undefined) ? 0 : official.cost
   if (balanceOnly) {
     if (activeProviderMode.kind === 'zai') {
-      if (chipVertical) chipTextParts.push(verticalMetric('plan-token', '5h 剩', planTokenRemaining))
+      if (chipVertical) chipTextParts.push(verticalMetric('plan-token', t('chip.planToken5h'), planTokenRemaining))
       else chipTextParts.push(React.createElement('span', { key: 'plan-token', className: 'dshw_homePrimary' },
-        React.createElement('span', { className: 'dshw_homePrimaryLabel' }, '5h 剩 '),
+        React.createElement('span', { className: 'dshw_homePrimaryLabel' }, t('chip.planToken5h') + ' '),
         React.createElement('span', { className: 'dshw_homePrimaryValue' }, planTokenRemaining)))
     } else if (activeProviderMode.kind === 'third') {
-      if (chipVertical) chipTextParts.push(verticalMetric('third', activeThirdCostText ? '本估' : '本场', activeThirdCostText || fmtTokens(thirdTokens)))
+      if (chipVertical) chipTextParts.push(verticalMetric('third', activeThirdCostText ? t('chip.estimated') : t('chip.session'), activeThirdCostText || fmtTokens(thirdTokens)))
       else chipTextParts.push(React.createElement('span', { key: 'third', className: 'dshw_homePrimary' },
-        React.createElement('span', { className: 'dshw_homePrimaryLabel' }, activeThirdCostText ? '本估 ' : '本场 '),
+        React.createElement('span', { className: 'dshw_homePrimaryLabel' }, (activeThirdCostText ? t('chip.estimated') : t('chip.session')) + ' '),
         React.createElement('span', { className: 'dshw_homePrimaryValue' }, activeThirdCostText || fmtTokens(thirdTokens))))
     } else {
-      if (chipVertical) chipTextParts.push(verticalMetric('bal', '余额', balanceText))
+      if (chipVertical) chipTextParts.push(verticalMetric('bal', t('chip.balance'), balanceText))
       else chipTextParts.push(React.createElement('span', { key: 'bal', className: 'dshw_balanceText dshw_homePrimary' },
-        React.createElement('span', { className: 'dshw_homePrimaryLabel' }, '余额 '),
+        React.createElement('span', { className: 'dshw_homePrimaryLabel' }, t('chip.balance') + ' '),
         React.createElement('span', { className: 'dshw_homePrimaryValue' }, balanceText)))
     }
   } else if (activeProviderMode.kind === 'zai') {
     if (chipVertical) {
-      chipTextParts.push(verticalMetric('provider', '套餐', 'Z.ai'))
-      chipTextParts.push(verticalMetric('plan-token', '5h 剩', planTokenRemaining))
-      chipTextParts.push(verticalMetric('plan-tools', 'MCP 剩', planToolRemaining))
-      if (showThird) chipTextParts.push(verticalMetric('third', '本场', fmtTokens(thirdTokens)))
+      chipTextParts.push(verticalMetric('provider', t('chip.plan'), 'Z.ai'))
+      chipTextParts.push(verticalMetric('plan-token', t('chip.planToken5h'), planTokenRemaining))
+      chipTextParts.push(verticalMetric('plan-tools', t('chip.planTools'), planToolRemaining))
+      if (showThird) chipTextParts.push(verticalMetric('third', t('chip.session'), fmtTokens(thirdTokens)))
     } else {
       chipTextParts.push(React.createElement('span', { key: 'provider', className: 'dshw_homePrimary' },
         React.createElement('span', { className: 'dshw_homePrimaryValue' }, 'Z.ai')))
-      chipTextParts.push(React.createElement('span', { key: 'plan-token' }, '5h 剩' + planTokenRemaining))
-      chipTextParts.push(React.createElement('span', { key: 'plan-tools' }, 'MCP 剩' + planToolRemaining))
-      if (showThird) chipTextParts.push(React.createElement('span', { key: 'third' }, '本场 ' + fmtTokens(thirdTokens)))
+      chipTextParts.push(React.createElement('span', { key: 'plan-token' }, t('chip.planToken5h') + planTokenRemaining))
+      chipTextParts.push(React.createElement('span', { key: 'plan-tools' }, t('chip.planTools') + planToolRemaining))
+      if (showThird) chipTextParts.push(React.createElement('span', { key: 'third' }, t('chip.session') + ' ' + fmtTokens(thirdTokens)))
     }
   } else if (activeProviderMode.kind === 'third') {
-    var thirdProviderName = providerDisplayName(activeProviderMode)
+    var thirdProviderName = providerDisplayName(activeProviderMode, t)
     if (chipVertical) {
-      chipTextParts.push(verticalMetric('provider', '模型', thirdProviderName))
-      chipTextParts.push(verticalMetric('third', '本场', fmtTokens(thirdTokens)))
-      if (activeThirdCostText) chipTextParts.push(verticalMetric('third-cost', '估算', activeThirdCostText))
+      chipTextParts.push(verticalMetric('provider', t('chip.model'), thirdProviderName))
+      chipTextParts.push(verticalMetric('third', t('chip.session'), fmtTokens(thirdTokens)))
+      if (activeThirdCostText) chipTextParts.push(verticalMetric('third-cost', t('chip.estimate'), activeThirdCostText))
     } else {
       chipTextParts.push(React.createElement('span', { key: 'provider', className: 'dshw_homePrimary' },
         React.createElement('span', { className: 'dshw_homePrimaryValue' }, thirdProviderName)))
-      chipTextParts.push(React.createElement('span', { key: 'third' }, '本场 ' + fmtTokens(thirdTokens)))
-      if (activeThirdCostText) chipTextParts.push(React.createElement('span', { key: 'third-cost' }, '估 ' + activeThirdCostText))
+      chipTextParts.push(React.createElement('span', { key: 'third' }, t('chip.sessionTokensPrefix') + fmtTokens(thirdTokens)))
+      if (activeThirdCostText) chipTextParts.push(React.createElement('span', { key: 'third-cost' }, t('chip.estimatedCostPrefix') + activeThirdCostText))
     }
   } else if (chipVertical) {
     if (showDeepSeek) {
-      chipTextParts.push(verticalMetric('bal', '余额', balanceText))
-      if (!chipCostHidden) chipTextParts.push(verticalMetric('cost', sessionCostLabel(bal.currency), sessionCostText(chipCostValue, bal.currency)))
-      chipTextParts.push(verticalMetric('off', '\u5b98', fmtTokens(officialTokens)))
+      chipTextParts.push(verticalMetric('bal', t('chip.balance'), balanceText))
+      if (!chipCostHidden) chipTextParts.push(verticalMetric('cost', sessionCostLabel(bal.currency, t), sessionCostText(chipCostValue, bal.currency)))
+      chipTextParts.push(verticalMetric('off', t('chip.official'), fmtTokens(officialTokens)))
     }
-    if (showThird) chipTextParts.push(verticalMetric('third', '\u4e09\u65b9', fmtTokens(thirdTokens)))
+    if (showThird) chipTextParts.push(verticalMetric('third', t('chip.third'), fmtTokens(thirdTokens)))
   } else {
     if (showDeepSeek) {
       chipTextParts.push(React.createElement('span', { key: 'bal', className: 'dshw_balanceText dshw_homePrimary' },
-        React.createElement('span', { className: 'dshw_homePrimaryLabel' }, '余额 '),
+        React.createElement('span', { className: 'dshw_homePrimaryLabel' }, t('panel.balanceLabel')),
         React.createElement('span', { className: 'dshw_homePrimaryValue' }, balanceText)))
-      if (!chipCostHidden) chipTextParts.push(React.createElement('span', { key: 'cost' }, sessionCostLabel(bal.currency) + ' ' + sessionCostText(chipCostValue, bal.currency)))
-      chipTextParts.push(React.createElement('span', { key: 'off' }, '\u5b98 ' + fmtTokens(officialTokens)))
+      if (!chipCostHidden) chipTextParts.push(React.createElement('span', { key: 'cost' }, sessionCostLabel(bal.currency, t) + ' ' + sessionCostText(chipCostValue, bal.currency)))
+      chipTextParts.push(React.createElement('span', { key: 'off' }, t('chip.officialTokensPrefix') + fmtTokens(officialTokens)))
     }
     if (showDeepSeek && showThird) chipTextParts.push(React.createElement('span', { key: 'sep', className: 'dshw_sep' }, '|'))
     if (showThird) chipTextParts.push(React.createElement('span', { key: 'third', className: showDeepSeek ? 'dshw_thirdText' : 'dshw_thirdText dshw_homePrimary' },
-      React.createElement('span', { className: 'dshw_homePrimaryLabel' }, '\u4e09\u65b9 '),
+      React.createElement('span', { className: 'dshw_homePrimaryLabel' }, t('chip.thirdPartyPrefix')),
       React.createElement('span', { className: 'dshw_homePrimaryValue' }, fmtTokens(thirdTokens))))
   }
 
@@ -1138,7 +1141,7 @@ function WalletChip(props) {
     role: 'group',
     'data-dshw-chip': chipAppearance,
     'data-dshw-balance-only': balanceOnly ? 'true' : 'false',
-    'aria-label': activeProviderMode.kind === 'zai' ? 'Z.ai 套餐额度' : activeProviderMode.kind === 'third' ? providerDisplayName(activeProviderMode) + ' 用量' : 'DeepSeek \u94b1\u5305',
+    'aria-label': activeProviderMode.kind === 'zai' ? t('chip.zaiPlanQuota') : activeProviderMode.kind === 'third' ? providerDisplayName(activeProviderMode, t) + t('chip.usageSuffix') : t('chip.deepSeekWallet'),
     onPointerDown: onChipDown
   },
     React.createElement('button', {
@@ -1146,7 +1149,7 @@ function WalletChip(props) {
       type: 'button',
       className: 'dshw_chipMain',
       'data-dshw-chip-main': 'true',
-      title: 'Harness Control Center \u00b7 \u70b9\u51fb\u67e5\u770b\u660e\u7ec6 \u00b7 \u62d6\u52a8\u53ef\u5438\u9644',
+      title: t('chip.controlCenterTooltip'),
       'aria-expanded': open,
       'aria-haspopup': 'dialog',
       onClick: function () {
@@ -1166,10 +1169,10 @@ function WalletChip(props) {
       type: 'button',
       className: 'dshw_recharge',
       'data-dshw-chip-recharge': 'true',
-      title: 'DeepSeek \u5f00\u653e\u5e73\u53f0 \u00b7 \u5b98\u65b9\u5145\u503c\u9875',
-      'aria-label': '\u6253\u5f00 DeepSeek \u5b98\u65b9\u5145\u503c\u9875',
+      title: t('chip.openPlatformTopUpTitle'),
+      'aria-label': t('chip.openTopUpPage'),
       onClick: onRechargeClick
-    }, '\u2197\u5145') : null)
+    }, t('chip.topUp')) : null)
 
   var chipHost = React.createElement('span', { ref: chipAnchorRef, className: chipDock === 'home' ? 'dshw_anchor dshw_anchorHome' + (homeMode === 'compact' ? ' dshw_compact' : homeMode === 'fit' ? ' dshw_fit' : '') : 'dshw_anchor' }, chip)
   var snapPreviewElement = snapPreview ? React.createElement('div', {
@@ -1190,12 +1193,12 @@ function WalletChip(props) {
         'aria-describedby': 'dshw-confirm-description',
         onClick: function (e) { e.stopPropagation() }
       },
-        React.createElement('div', { id: 'dshw-confirm-title', className: 'dshw_title' }, '\u5c06\u6253\u5f00 DeepSeek \u5f00\u653e\u5e73\u53f0\u5b98\u65b9\u5145\u503c\u9875\uff1a'),
+        React.createElement('div', { id: 'dshw-confirm-title', className: 'dshw_title' }, t('chip.topUpDialogTitle')),
         React.createElement('div', { className: 'dshw_muted' }, 'https://platform.deepseek.com/top_up'),
-        React.createElement('div', { id: 'dshw-confirm-description' }, '\u767b\u5f55\u4e0e\u652f\u4ed8\u7531\u5b98\u65b9\u9875\u9762\u5b8c\u6210\uff0c\u672c\u63d2\u4ef6\u4e0d\u63a5\u89e6\u8d26\u53f7\u4e0e\u652f\u4ed8\u4fe1\u606f\u3002'),
+        React.createElement('div', { id: 'dshw-confirm-description' }, t('chip.topUpDialogDesc')),
         React.createElement('div', { className: 'dshw_overlayRow' },
-          React.createElement('button', { ref: cancelButtonRef, type: 'button', className: 'dshw_btn', onClick: function () { setConfirming(false) } }, '\u53d6\u6d88'),
-          React.createElement('button', { ref: confirmButtonRef, type: 'button', className: 'dshw_btn dshw_btnPrimary', onClick: goRecharge }, '\u53bb\u5145\u503c'))))
+          React.createElement('button', { ref: cancelButtonRef, type: 'button', className: 'dshw_btn', onClick: function () { setConfirming(false) } }, t('chip.cancel')),
+          React.createElement('button', { ref: confirmButtonRef, type: 'button', className: 'dshw_btn dshw_btnPrimary', onClick: goRecharge }, t('chip.goTopUp')))))
   }
 
   if (!open && !floated) return React.createElement(React.Fragment, null, chipHost, snapPreviewElement, confirmOverlay)
@@ -1204,41 +1207,41 @@ function WalletChip(props) {
   if (bal.available && bal.balances && bal.balances.length > 0) {
     bal.balances.forEach(function (info, index) {
       balanceRows.push(React.createElement('div', { key: String(info.currency) + '-' + index, className: 'dshw_row' },
-        React.createElement('span', { className: 'dshw_muted' }, '\u4f59\u989d (' + info.currency + ')'),
-        React.createElement('span', null, fmtCurrency(info.total_balance, info.currency) + '  (\u5145\u503c ' + fmtCurrency(info.topped_up_balance, info.currency) + ' / \u8d60\u9001 ' + fmtCurrency(info.granted_balance, info.currency) + ')')
+        React.createElement('span', { className: 'dshw_muted' }, t('chip.balanceWithCurrency') + info.currency + ')'),
+        React.createElement('span', null, fmtCurrency(info.total_balance, info.currency) + t('chip.toppedUpPrefix') + fmtCurrency(info.topped_up_balance, info.currency) + t('chip.grantedPrefix') + fmtCurrency(info.granted_balance, info.currency) + ')')
       ))
     })
   } else {
-    balanceRows.push(React.createElement('div', { key: 'no-bal', className: 'dshw_row dshw_muted' }, bal.error ? ('\u4f59\u989d\u4e0d\u53ef\u7528: ' + bal.error) : '\u4f59\u989d\u67e5\u8be2\u4e2d\u2026'))
+    balanceRows.push(React.createElement('div', { key: 'no-bal', className: 'dshw_row dshw_muted' }, bal.error ? (t('chip.balanceUnavailable') + bal.error) : t('chip.balanceLoading')))
   }
 
   var officialRows = []
   if (official.tokens) {
     officialRows.push(React.createElement('div', { key: 'o-t', className: 'dshw_row' },
-      React.createElement('span', { className: 'dshw_muted' }, '\u5b98\u65b9 token'),
-      React.createElement('span', null, '\u8f93\u5165 ' + fmtTokens(official.tokens.input) + ' \u00b7 \u7f13\u5b58\u8bfb ' + fmtTokens(official.tokens.cacheRead) + ' \u00b7 \u8f93\u51fa ' + fmtTokens(official.tokens.output))))
+      React.createElement('span', { className: 'dshw_muted' }, t('chip.officialToken')),
+      React.createElement('span', null, t('chip.tokensInputPrefix') + fmtTokens(official.tokens.input) + t('chip.cacheReadPrefix') + fmtTokens(official.tokens.cacheRead) + t('chip.outputPrefix') + fmtTokens(official.tokens.output))))
   }
   officialRows.push(React.createElement('div', { key: 'o-c', className: 'dshw_row' },
-    React.createElement('span', { className: 'dshw_muted' }, '\u672c\u4f1a\u8bdd\u82b1\u8d39'),
-    React.createElement('span', null, official.cost === null ? '\u672a\u5b9a\u4ef7\u6a21\u578b' : sessionCostText(official.cost, bal.currency))))
+    React.createElement('span', { className: 'dshw_muted' }, t('chip.sessionCost')),
+    React.createElement('span', null, official.cost === null ? t('chip.unpricedModel') : sessionCostText(official.cost, bal.currency))))
 
   var thirdRows = []
   thirdRows.push(React.createElement('div', { key: 't-t', className: 'dshw_row' },
-    React.createElement('span', { className: 'dshw_muted' }, '\u7b2c\u4e09\u65b9 token'),
-    React.createElement('span', null, '\u8f93\u5165 ' + fmtTokens(third.tokens && third.tokens.input) + ' \u00b7 \u7f13\u5b58\u8bfb ' + fmtTokens(third.tokens && third.tokens.cacheRead) + ' \u00b7 \u8f93\u51fa ' + fmtTokens(third.tokens && third.tokens.output))))
+    React.createElement('span', { className: 'dshw_muted' }, t('chip.thirdPartyToken')),
+    React.createElement('span', null, t('chip.tokensInputPrefix') + fmtTokens(third.tokens && third.tokens.input) + t('chip.cacheReadPrefix') + fmtTokens(third.tokens && third.tokens.cacheRead) + t('chip.outputPrefix') + fmtTokens(third.tokens && third.tokens.output))))
   if (thirdCustomText) {
     thirdRows.push(React.createElement('div', { key: 't-c', className: 'dshw_row' },
-      React.createElement('span', { className: 'dshw_muted' }, '自定义估算'),
-      React.createElement('span', { title: '按当前自定义规则及用量发生时间计算，不代表第三方账单' }, thirdCustomText)))
+      React.createElement('span', { className: 'dshw_muted' }, t('chip.customEstimate')),
+      React.createElement('span', { title: t('chip.customEstimateExplain') }, thirdCustomText)))
   }
   if (activeThirdRoute && activeThirdRoute.activePrice) {
     var activeCustomPrice = activeThirdRoute.activePrice
     var activeWindow = activeCustomPrice.window
     thirdRows.push(React.createElement('div', { key: 't-price-window', className: 'dshw_row' },
-      React.createElement('span', { className: 'dshw_muted' }, '当前计价'),
+      React.createElement('span', { className: 'dshw_muted' }, t('chip.currentPricing')),
       React.createElement('span', {
-        title: activeWindow ? ('星期按所选日期 · ' + activeWindow.start + '–' + activeWindow.end + ' · ' + activeCustomPrice.timezone) : ('未命中分时段 · ' + activeCustomPrice.timezone)
-      }, activeCustomPrice.label)))
+        title: activeWindow ? (t('chip.weekdayBySelectedDate') + activeWindow.start + '–' + activeWindow.end + ' · ' + activeCustomPrice.timezone) : (t('chip.noWindowMatched') + activeCustomPrice.timezone)
+      }, customRateLabel(activeCustomPrice, t))))
   }
 
   var thresholdInput = React.createElement('input', {
@@ -1246,10 +1249,10 @@ function WalletChip(props) {
     type: 'number',
     min: '0',
     step: 'any',
-    'aria-label': '余额提醒阈值（' + (bal.currency || 'CNY') + '）',
+    'aria-label': t('chip.balanceThresholdPrefix') + (bal.currency || 'CNY') + t('chip.balanceThresholdSuffix'),
     value: thresholdDraft === null ? '' : thresholdDraft,
     disabled: usageLocked,
-    title: usageLocked ? '用量账本存储已锁定，无法保存阈值' : undefined,
+    title: usageLocked ? t('settings.usageLedgerLockedThreshold') : undefined,
     onChange: function (event) {
       thresholdInitializedRef.current = 'editing'
       if (thresholdEditTimerRef.current) clearTimeout(thresholdEditTimerRef.current)
@@ -1258,10 +1261,10 @@ function WalletChip(props) {
     }
   })
 
-  var usageLockNotice = usageLocked ? React.createElement('div', { className: 'dshw_muted', style: { color: 'var(--dsw-alias-state-error-primary,#e5534b)', lineHeight: 1.4 } }, '本地用量账本无法读取，阈值保存与清除已禁用') : null
+  var usageLockNotice = usageLocked ? React.createElement('div', { className: 'dshw_muted', style: { color: 'var(--dsw-alias-state-error-primary,#e5534b)', lineHeight: 1.4 } }, t('chip.ledgerUnreadable')) : null
 
   var scaleControl = React.createElement('div', { className: 'dshw_row' },
-    React.createElement('span', { className: 'dshw_muted' }, '芯片比例'),
+    React.createElement('span', { className: 'dshw_muted' }, t('chip.chipRatio')),
     React.createElement('span', { className: 'dshw_scaleControl' },
       React.createElement('input', {
         className: 'dshw_scaleInput',
@@ -1270,73 +1273,73 @@ function WalletChip(props) {
         max: String(scaleMaxPercent),
         step: '5',
         value: String(Math.round(chipScale * 100)),
-        'aria-label': '钱包芯片比例',
+        'aria-label': t('settings.walletChipScale'),
         onInput: function (event) { saveChipScale(Number.parseFloat(event.target.value) / 100) },
         onChange: function (event) { saveChipScale(Number.parseFloat(event.target.value) / 100) }
       }),
       React.createElement('span', { className: 'dshw_scaleValue' }, Math.round(chipScale * 100) + '%')))
 
   var visibilityControl = React.createElement('div', { className: 'dshw_row' },
-    React.createElement('span', { className: 'dshw_muted' }, '显示内容'),
+    React.createElement('span', { className: 'dshw_muted' }, t('settings.displayContent')),
     React.createElement('span', { className: 'dshw_visibilityControl' },
       React.createElement('label', { className: 'dshw_check' },
         React.createElement('input', {
           type: 'checkbox',
           checked: showOfficial,
           disabled: showOfficial && !showThird,
-          'aria-label': '显示官方数据',
+          'aria-label': t('settings.showOfficialData'),
           onChange: function (event) { saveDataVisibility({ official: event.target.checked, third: showThird }) }
         }),
-        React.createElement('span', null, '官方数据')),
+        React.createElement('span', null, t('chip.officialData'))),
       React.createElement('label', { className: 'dshw_check' },
         React.createElement('input', {
           type: 'checkbox',
           checked: showThird,
           disabled: showThird && !showOfficial,
-          'aria-label': '显示第三方 token',
+          'aria-label': t('settings.showThirdPartyTokens'),
           onChange: function (event) { saveDataVisibility({ official: showOfficial, third: event.target.checked }) }
         }),
-        React.createElement('span', null, '第三方 token'))))
+        React.createElement('span', null, t('chip.thirdPartyToken')))))
 
   var notifyControl = React.createElement('div', { className: 'dshw_row dshw_notifyControl' },
-    React.createElement('span', { className: 'dshw_muted' }, '完成提醒'),
+    React.createElement('span', { className: 'dshw_muted' }, t('settings.completionAlert')),
     React.createElement('span', { className: 'dshw_visibilityControl' },
       React.createElement('label', { className: 'dshw_check' },
         React.createElement('input', {
           type: 'checkbox',
           checked: notifyConfig.enabled,
-          'aria-label': '开启对话完成后提醒',
+          'aria-label': t('chip.enableTurnDoneReminder'),
           onChange: function (event) {
             var enabled = event.target.checked
             saveNotifyConfig({ enabled: enabled, timeout: notifyConfig.timeout })
             if (enabled) requestNotify()
           }
         }),
-        React.createElement('span', null, '开启')),
+        React.createElement('span', null, t('chip.on'))),
       React.createElement('select', {
         className: 'dshw_select',
         value: String(notifyConfig.timeout),
         disabled: !notifyConfig.enabled,
-        'aria-label': '提醒自动关闭时间',
+        'aria-label': t('chip.reminderAutoCloseTime'),
         onChange: function (event) {
           saveNotifyConfig({ enabled: notifyConfig.enabled, timeout: Number.parseInt(event.target.value, 10) })
         }
       },
-        React.createElement('option', { value: '0' }, '一直保留，手动关闭'),
-        React.createElement('option', { value: '5' }, '5 秒'),
-        React.createElement('option', { value: '10' }, '10 秒'),
-        React.createElement('option', { value: '30' }, '30 秒'),
-        React.createElement('option', { value: '60' }, '60 秒'))))
+        React.createElement('option', { value: '0' }, t('chip.keepUntilClosed')),
+        React.createElement('option', { value: '5' }, t('settings.seconds5')),
+        React.createElement('option', { value: '10' }, t('settings.seconds10')),
+        React.createElement('option', { value: '30' }, t('settings.seconds30')),
+        React.createElement('option', { value: '60' }, t('settings.seconds60')))))
 
   var permanentDeleteControl = React.createElement('div', { className: 'dshw_setCell', style: { border: 'none', padding: '0 9px', minHeight: '30px' } },
-    React.createElement('span', { className: 'dshw_muted' }, '永久删除会话'),
+    React.createElement('span', { className: 'dshw_muted' }, t('settings.deleteSessionPermanently')),
     React.createElement('label', { className: 'dshw_check' },
       React.createElement('input', {
         type: 'checkbox',
         checked: permanentDeleteSupported && permanentDeleteEnabled,
         disabled: !permanentDeleteSupported,
-        'aria-label': '开启永久删除会话',
-        title: permanentDeleteSupported ? '在会话菜单中显示永久删除' : '当前宿主未提供永久删除能力',
+        'aria-label': t('settings.enablePermanentDelete'),
+        title: permanentDeleteSupported ? t('settings.showPermanentDelete') : t('settings.hostNoPermanentDelete'),
         onChange: function (event) {
           if (!permanentDeleteSupported) return
           var enabled = event.target.checked
@@ -1345,28 +1348,28 @@ function WalletChip(props) {
           compatibility.dispatch(PERMANENT_DELETE_EVENT)
         }
       }),
-      React.createElement('span', null, permanentDeleteSupported ? '开启' : '宿主不支持')))
+      React.createElement('span', null, permanentDeleteSupported ? t('chip.on') : t('chip.hostUnsupported'))))
   var floatBtnRow = React.createElement('div', {
     className: 'dshw_row dshw_panelHeader',
     style: { justifyContent: 'space-between', marginTop: '2px' },
-    title: '按住此标题栏拖动控制面板',
+    title: t('chip.dragPanelTooltip'),
     'data-dshw-panel-drag-handle': 'true',
     onPointerDown: onPanelDown
   },
-    React.createElement('span', { className: 'dshw_panelDragLabel' }, '⠿ 按住拖动'),
+    React.createElement('span', { className: 'dshw_panelDragLabel' }, t('chip.dragHoldLabel')),
     React.createElement('span', { style: { display: 'inline-flex', gap: '4px' } },
       React.createElement('button', {
         type: 'button',
         className: 'dshw_btn',
         style: { height: '22px', fontSize: '11px', padding: '0 8px' },
-        title: '恢复到输入框工具栏',
+        title: t('chip.restoreToToolbar'),
         onClick: function () { applyChipLayout({ dock: 'home', x: 0, y: 0 }) }
-      }, '↩ 归位'),
+      }, t('settings.redockButton')),
       React.createElement('button', {
         type: 'button',
         className: 'dshw_btn',
         style: { height: '22px', fontSize: '11px', padding: '0 8px' },
-        title: '最小化为可自由拖动的圆形钱包',
+        title: t('chip.minimizeToCircle'),
         onClick: function () {
           var rect = chipRef.current ? chipRef.current.getBoundingClientRect() : null
           if (rect) {
@@ -1381,13 +1384,13 @@ function WalletChip(props) {
           setMinimized(true)
           setOpen(false)
         }
-      }, '－ 最小化')))
+      }, t('chip.minimize'))))
 
   var providerSwitcher = React.createElement('div', {
     className: 'dshw_providerTabs',
     role: 'group',
-    'aria-label': '切换控制面板数据',
-    title: '只切换面板展示，不更改当前聊天模型'
+    'aria-label': t('chip.switchPanelData'),
+    title: t('chip.switchPanelDataTooltip')
   },
     React.createElement('button', {
       type: 'button',
@@ -1407,14 +1410,14 @@ function WalletChip(props) {
   function balanceCard() {
     if (!bal.available || !bal.balances || bal.balances.length === 0) {
       return React.createElement('div', { className: 'dshw_balanceCard' },
-        React.createElement('div', { className: 'dshw_muted' }, bal.error ? balanceErrorText(bal.error) : '余额查询中…'))
+        React.createElement('div', { className: 'dshw_muted' }, bal.error ? balanceErrorText(bal.error, t) : t('chip.balanceLoading')))
     }
     var first = selectBalanceInfo(bal)
     var others = bal.balances.filter(function (info) { return info !== first })
     var subParts = [
-      React.createElement('span', { key: 'top' }, '\u5145\u503c ' + fmtCurrency(first.topped_up_balance, first.currency)),
+      React.createElement('span', { key: 'top' }, t('settings.toppedUpPrefix') + fmtCurrency(first.topped_up_balance, first.currency)),
       React.createElement('span', { key: 'd1', className: 'dshw_balDot' }, '\u00b7'),
-      React.createElement('span', { key: 'grt' }, '\u8d60\u9001 ' + fmtCurrency(first.granted_balance, first.currency))
+      React.createElement('span', { key: 'grt' }, t('settings.grantedPrefix') + fmtCurrency(first.granted_balance, first.currency))
     ]
     others.forEach(function (info, i) {
       subParts.push(React.createElement('span', { key: 'd' + i, className: 'dshw_balDot' }, '\u00b7'))
@@ -1424,11 +1427,11 @@ function WalletChip(props) {
       className: low ? 'dshw_balanceCard dshw_low' : 'dshw_balanceCard'
     },
       React.createElement('div', { className: 'dshw_balLine' },
-        React.createElement('span', { className: 'dshw_muted' }, '\u4f59\u989d'),
+        React.createElement('span', { className: 'dshw_muted' }, t('chip.balance')),
         React.createElement('span', { className: 'dshw_balNum' }, fmtCurrency(first.total_balance, first.currency)),
-        low ? React.createElement('span', { className: 'dshw_balWarn', title: '低于提醒阈值 ' + fmtCurrency(snapshot.threshold !== undefined ? snapshot.threshold : 0, bal.currency || 'CNY') }, '余额偏低') : null),
+        low ? React.createElement('span', { className: 'dshw_balWarn', title: t('chip.belowThresholdPrefix') + fmtCurrency(snapshot.threshold !== undefined ? snapshot.threshold : 0, bal.currency || 'CNY') }, t('settings.lowBalance')) : null),
       React.createElement('div', { className: 'dshw_balSub' },
-        sessionCostLabel(bal.currency) + ' ' + (official.cost === null ? '--' : sessionCostText(official.cost, bal.currency)),
+        sessionCostLabel(bal.currency, t) + ' ' + (official.cost === null ? '--' : sessionCostText(official.cost, bal.currency)),
         React.createElement('span', { className: 'dshw_balDot' }, '\u00b7'),
         subParts))
   }
@@ -1438,35 +1441,35 @@ function WalletChip(props) {
   function settingsCard() {
     var cells = []
     cells.push(React.createElement('div', { key: 'vis', className: 'dshw_setCell' },
-      React.createElement('span', { className: 'dshw_muted' }, '\u663e\u793a\u5185\u5bb9'),
+      React.createElement('span', { className: 'dshw_muted' }, t('settings.displayContent')),
       React.createElement('span', { className: 'dshw_balFill' }),
       React.createElement('label', { className: 'dshw_chipToggle' },
         React.createElement('input', {
           type: 'checkbox',
           checked: showOfficial,
           disabled: showOfficial && !showThird,
-          'aria-label': '显示官方数据',
+          'aria-label': t('settings.showOfficialData'),
           onChange: function (event) { saveDataVisibility({ official: event.target.checked, third: showThird }) }
         }),
-        React.createElement('span', null, '\u5b98\u65b9')),
+        React.createElement('span', null, t('settings.official'))),
       React.createElement('label', { className: 'dshw_chipToggle' },
         React.createElement('input', {
           type: 'checkbox',
           checked: showThird,
           disabled: showThird && !showOfficial,
-          'aria-label': '显示第三方 token',
+          'aria-label': t('settings.showThirdPartyTokens'),
           onChange: function (event) { saveDataVisibility({ official: showOfficial, third: event.target.checked }) }
         }),
-        React.createElement('span', null, '\u7b2c\u4e09\u65b9'))))
+        React.createElement('span', null, t('settings.thirdParty')))))
     cells.push(React.createElement('div', { key: 'sc', className: 'dshw_setCell' }, scaleControl))
-    // 完成提醒 + 低额阈值 同行(无保存按钮后 276px 放得下)
+    // Completion reminder + low-balance threshold share a row (fits 276px with no save button).
     cells.push(React.createElement('div', { key: 'nfth', className: 'dshw_setCell', style: { gap: '5px' } },
-      React.createElement('span', { className: 'dshw_muted', style: { flex: 'none' } }, '\u63d0\u9192'),
+      React.createElement('span', { className: 'dshw_muted', style: { flex: 'none' } }, t('chip.alert')),
       React.createElement('select', {
         className: 'dshw_select',
         style: { flex: '0 0 auto' },
         value: notifyConfig.enabled ? (notifyConfig.timeout === 0 ? 'keep' : String(notifyConfig.timeout)) : 'off',
-        'aria-label': '\u5b8c\u6210\u63d0\u9192',
+        'aria-label': t('settings.completionAlert'),
         onChange: function (event) {
           var v = event.target.value
           if (v === 'off') { saveNotifyConfig({ enabled: false, timeout: notifyConfig.timeout }); return }
@@ -1474,32 +1477,32 @@ function WalletChip(props) {
           requestNotify()
         }
       },
-        React.createElement('option', { value: 'off' }, '\u5173\u95ed'),
-        React.createElement('option', { value: '5' }, '5 \u79d2'),
-        React.createElement('option', { value: '10' }, '10 \u79d2'),
-        React.createElement('option', { value: '30' }, '30 \u79d2'),
-        React.createElement('option', { value: '60' }, '60 \u79d2'),
-        React.createElement('option', { value: 'keep' }, '\u4e00\u76f4\u4fdd\u7559')),
+        React.createElement('option', { value: 'off' }, t('settings.off')),
+        React.createElement('option', { value: '5' }, t('settings.seconds5')),
+        React.createElement('option', { value: '10' }, t('settings.seconds10')),
+        React.createElement('option', { value: '30' }, t('settings.seconds30')),
+        React.createElement('option', { value: '60' }, t('settings.seconds60')),
+        React.createElement('option', { value: 'keep' }, t('settings.keepForever'))),
       React.createElement('span', { className: 'dshw_balFill' }),
-      React.createElement('span', { className: 'dshw_muted', style: { flex: 'none' } }, '\u9608\u503c'),
+      React.createElement('span', { className: 'dshw_muted', style: { flex: 'none' } }, t('chip.threshold')),
       React.createElement('input', {
         className: 'dshw_input', type: 'number', min: '0', step: '0.01',
         style: { width: '64px', flex: 'none' },
         value: thresholdDraft,
         disabled: usageLocked,
-        title: usageLocked ? '用量账本存储已锁定，无法保存阈值' : '\u4f4e\u4e8e\u6b64\u4f59\u989d\u65f6\u63d0\u9192\uff080 \u5173\u95ed\uff09\uff1b\u8f93\u5165\u540e\u81ea\u52a8\u4fdd\u5b58',
-        'aria-label': '\u4f4e\u989d\u9608\u503c (' + (bal.currency === 'USD' ? 'USD' : 'CNY') + ')',
+        title: usageLocked ? t('settings.usageLedgerLockedThreshold') : t('chip.thresholdHint'),
+        'aria-label': t('chip.lowBalanceThreshold') + (bal.currency === 'USD' ? 'USD' : 'CNY') + ')',
         onInput: function (event) { setThresholdDraft(event.target.value); queueThresholdSave(event.target.value) },
         onChange: function (event) { setThresholdDraft(event.target.value); queueThresholdSave(event.target.value) }
       })))
-    // 低额闪烁 + 永久删除 同行
+    // Low-balance blink + permanent delete share a row.
     cells.push(React.createElement('div', { key: 'blinkpd', className: 'dshw_setCell', style: { gap: '5px' } },
-      React.createElement('span', { className: 'dshw_muted', style: { flex: 'none' } }, '\u4f4e\u989d\u95ea\u70c1'),
+      React.createElement('span', { className: 'dshw_muted', style: { flex: 'none' } }, t('chip.lowBalanceBlink')),
       React.createElement('label', { className: 'dshw_switch' },
         React.createElement('input', {
           type: 'checkbox',
           checked: lowBlinkOn,
-          'aria-label': '\u4f4e\u989d\u65f6\u7ea2\u8272\u95ea\u70c1',
+          'aria-label': t('chip.lowBalanceBlinkRed'),
           onChange: function (event) {
             try { compatibility.storage.setItem(LOW_BLINK_KEY, String(event.target.checked)) } catch (e) { /* ignore */ }
             compatibility.dispatch(SETTINGS_EVENT)
@@ -1508,14 +1511,14 @@ function WalletChip(props) {
         React.createElement('span', { className: 'dshw_track', 'aria-hidden': 'true' }),
         React.createElement('span', { className: 'dshw_knob', 'aria-hidden': 'true' })),
       React.createElement('span', { className: 'dshw_balFill' }),
-      React.createElement('span', { className: 'dshw_muted', style: { flex: 'none' } }, permanentDeleteSupported ? '\u6c38\u4e45\u5220\u9664' : '\u6c38\u4e45\u5220\u9664(\u4e0d\u652f\u6301)'),
+      React.createElement('span', { className: 'dshw_muted', style: { flex: 'none' } }, permanentDeleteSupported ? t('chip.permanentDelete') : t('chip.permanentDeleteUnsupported')),
       React.createElement('label', { className: 'dshw_switch' },
         React.createElement('input', {
           type: 'checkbox',
           checked: permanentDeleteSupported && permanentDeleteEnabled,
           disabled: !permanentDeleteSupported,
-          'aria-label': '\u5f00\u542f\u6c38\u4e45\u5220\u9664\u4f1a\u8bdd',
-          title: permanentDeleteSupported ? '\u5728\u4f1a\u8bdd\u83dc\u5355\u4e2d\u663e\u793a\u6c38\u4e45\u5220\u9664' : '\u5f53\u524d\u5bbf\u4e3b\u672a\u63d0\u4f9b\u6c38\u4e45\u5220\u9664\u80fd\u529b',
+          'aria-label': t('settings.enablePermanentDelete'),
+          title: permanentDeleteSupported ? t('settings.showPermanentDelete') : t('settings.hostNoPermanentDelete'),
           onChange: function (event) {
             if (!permanentDeleteSupported) return
             var enabled = event.target.checked
@@ -1534,20 +1537,20 @@ function WalletChip(props) {
     className: 'dshw_panel',
     style: panelStyle,
     role: 'dialog',
-    'aria-label': panelProviderMode.kind === 'zai' ? 'Z.ai 套餐与用量明细' : panelProviderMode.kind === 'third' ? providerDisplayName(panelProviderMode) + ' 用量明细' : 'DeepSeek \u94b1\u5305\u660e\u7ec6',
+    'aria-label': panelProviderMode.kind === 'zai' ? t('panel.titleZai') : panelProviderMode.kind === 'third' ? t('panel.titleThird', { provider: providerDisplayName(panelProviderMode, t) }) : t('panel.title'),
     onClick: function (e) { e.stopPropagation() }
   },
     floatBtnRow,
     providerSwitcher,
     panelShowDeepSeek ? React.createElement(React.Fragment, null,
-      React.createElement('div', { className: 'dshw_title' }, (snapshot.accounts && snapshot.accounts.activeName) ? '官方 DeepSeek · ' + snapshot.accounts.activeName : '官方 DeepSeek'),
+      React.createElement('div', { className: 'dshw_title' }, (snapshot.accounts && snapshot.accounts.activeName) ? t('chip.officialDeepSeekPrefix') + snapshot.accounts.activeName : t('chip.officialDeepSeek')),
       balanceCard(),
       official.tokens ? React.createElement('div', { key: 'o-t', className: 'dshw_row' },
-        React.createElement('span', { className: 'dshw_muted' }, '\u5b98\u65b9 token'),
-        React.createElement('span', null, '\u8f93\u5165 ' + fmtTokens(official.tokens.input) + ' \u00b7 \u7f13\u5b58\u8bfb ' + fmtTokens(official.tokens.cacheRead) + ' \u00b7 \u8f93\u51fa ' + fmtTokens(official.tokens.output))) : null,
+        React.createElement('span', { className: 'dshw_muted' }, t('chip.officialToken')),
+        React.createElement('span', null, t('chip.tokensInputPrefix') + fmtTokens(official.tokens.input) + t('chip.cacheReadPrefix') + fmtTokens(official.tokens.cacheRead) + t('chip.outputPrefix') + fmtTokens(official.tokens.output))) : null,
       React.createElement('div', { className: 'dshw_divider' })) : null,
     showThird ? React.createElement(React.Fragment, null,
-      React.createElement('div', { className: 'dshw_title' }, panelProviderMode.kind === 'zai' ? 'Z.ai / 第三方本会话 Token' : panelProviderMode.kind === 'third' ? providerDisplayName(panelProviderMode) + ' 本会话 Token' : '\u7b2c\u4e09\u65b9\u5408\u8ba1'),
+      React.createElement('div', { className: 'dshw_title' }, panelProviderMode.kind === 'zai' ? t('chip.zaiThirdPartySessionTokens') : panelProviderMode.kind === 'third' ? providerDisplayName(panelProviderMode, t) + t('chip.sessionTokensSuffix') : t('chip.thirdPartyTotal')),
       thirdRows,
       React.createElement('div', { className: 'dshw_divider' })) : null,
     panelShowDeepSeek ? settingsCard() : React.createElement('div', { className: 'dshw_setCard' },
@@ -1561,21 +1564,21 @@ function WalletChip(props) {
           type: 'button',
           className: 'dshw_btn dshw_btnPrimary',
           onClick: onRechargeClick
-        }, '\u2197 \u5145\u503c'),
-        React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: refreshBalance }, '刷新余额'),
+        }, t('panel.rechargeShort')),
+        React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: refreshBalance }, t('settings.refreshBalance')),
         React.createElement('button', {
           type: 'button',
           className: 'dshw_btn',
           disabled: usageLocked,
           style: { color: 'var(--dsw-alias-state-error-primary,#e5534b)' },
-          title: usageLocked ? '用量账本存储已锁定，无法清除' : '\u6e05\u9664\u672c\u4f1a\u8bdd\u7684\u4f59\u989d\u4e0e token \u6570\u636e\uff0c\u4e0d\u53ef\u6062\u590d',
+          title: usageLocked ? t('chip.ledgerLockedClear') : t('chip.clearSessionDataTooltip'),
           onClick: function () {
-            if (window.confirm('确认清除本会话的余额与 token 数据？不可恢复。')) clearSession()
+            if (window.confirm(t('chip.clearSessionDataConfirm'))) clearSession()
           }
-        }, '清除')),
+        }, t('chip.clear'))),
       React.createElement('div', { className: 'dshw_divider' })) : null,
-    React.createElement(UsageHistoryPanel, { key: 'history', sessionId: sessionId }),
-    panelShowZai ? React.createElement(PlanUsagePanel, { key: 'plans-compact', compact: true, provider: panelProviderMode.provider }) : null,
+    React.createElement(UsageHistoryPanel, { key: 'history', sessionId: sessionId, t: t }),
+    panelShowZai ? React.createElement(PlanUsagePanel, { key: 'plans-compact', compact: true, provider: panelProviderMode.provider, t: t }) : null,
     panelShowDeepSeek ? accountsSection() : null,
     React.createElement('div', { style: { marginTop: '8px', textAlign: 'right', fontSize: '10px', color: 'var(--dsw-alias-label-secondary,var(--dsw-alias-label-tertiary,#667085))', userSelect: 'none' } }, 'Harness Control Center v' + WALLET_VERSION)
   )
@@ -1588,8 +1591,8 @@ function WalletChip(props) {
         type: 'button',
         className: low ? 'dshw_dot dshw_dotLow' : 'dshw_dot',
         style: { left: dotPos.x, top: dotPos.y },
-        title: '钱包 · 点击展开',
-        'aria-label': '钱包，点击展开',
+        title: t('chip.walletClickExpand'),
+        'aria-label': t('chip.aria'),
         onPointerDown: onFloatDown,
         onClick: function () { if (didDragRef.current !== true) setMinimized(false) }
       }, activeProviderMode.kind === 'zai' ? planTokenRemaining : showDeepSeek ? (bal.total === null || bal.total === undefined ? '--' : fmtCurrency(bal.total, bal.currency)) : fmtTokens(thirdTokens))
@@ -1601,22 +1604,22 @@ function WalletChip(props) {
       className: 'dshw_float',
       style: { left: winPos.x, top: winPos.y },
       role: 'dialog',
-      'aria-label': panelProviderMode.kind === 'zai' ? 'Z.ai 浮动套餐面板' : panelShowDeepSeek ? 'DeepSeek 浮动钱包' : providerDisplayName(panelProviderMode) + ' 浮动用量面板'
+      'aria-label': panelProviderMode.kind === 'zai' ? t('panel.floatTitleZai') : panelShowDeepSeek ? t('panel.floatTitle') : t('panel.floatTitleThird', { provider: providerDisplayName(panelProviderMode, t) })
     },
       React.createElement('div', { className: 'dshw_floatHeader', onPointerDown: onFloatDown },
-        React.createElement('span', { title: '按住标题栏拖动' }, '⠿ 钱包 · 按住拖动'),
+        React.createElement('span', { title: t('chip.dragByTitleBar') }, t('chip.walletHoldToDrag')),
         React.createElement('span', null,
           React.createElement('button', {
             type: 'button',
             className: 'dshw_floatBtn',
-            title: '最小化为圆点',
+            title: t('chip.minimizeToDot'),
             onClick: function (e) { e.stopPropagation(); setMinimized(true) }
           }, '–'),
           React.createElement('button', {
             type: 'button',
             className: 'dshw_floatBtn',
             style: { marginLeft: '4px' },
-            title: '收回标签模式',
+            title: t('chip.collapseTabMode'),
             onClick: function (e) { e.stopPropagation(); setFloated(false); setMinimized(false); setOpen(false) }
           }, '×'))),
       providerSwitcher,
@@ -1634,29 +1637,29 @@ function WalletChip(props) {
       usageLockNotice,
       panelShowDeepSeek ? React.createElement(React.Fragment, null,
         React.createElement('div', { className: 'dshw_row' },
-          React.createElement('span', { className: 'dshw_muted' }, '阈值(' + (bal.currency || 'CNY') + ',0=关)'),
+          React.createElement('span', { className: 'dshw_muted' }, t('chip.thresholdShortPrefix') + (bal.currency || 'CNY') + t('chip.thresholdZeroOff')),
           thresholdInput),
         React.createElement('div', { className: 'dshw_row' },
-          React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: refreshBalance }, '刷新'),
-          React.createElement('button', { type: 'button', className: 'dshw_btn dshw_btnPrimary', disabled: usageLocked, onClick: saveThreshold }, '保存')),
+          React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: refreshBalance }, t('history.refresh')),
+          React.createElement('button', { type: 'button', className: 'dshw_btn dshw_btnPrimary', disabled: usageLocked, onClick: saveThreshold }, t('settings.save'))),
         React.createElement('button', {
           type: 'button',
           className: 'dshw_btn dshw_btnPrimary',
           style: { textAlign: 'center' },
           onClick: onRechargeClick
-        }, '↗ 充值')) : null,
+        }, t('panel.rechargeShort'))) : null,
       React.createElement('button', {
         type: 'button',
         className: 'dshw_btn', style: { width: '100%' },
         disabled: usageLocked,
-        title: usageLocked ? '用量账本存储已锁定，无法清除' : undefined,
+        title: usageLocked ? t('chip.ledgerLockedClear') : undefined,
         onClick: function () {
-          if (window.confirm('确认清除本会话的余额与 token 数据？不可恢复。')) clearSession()
+          if (window.confirm(t('chip.clearSessionDataConfirm'))) clearSession()
         }
-      }, panelShowDeepSeek ? '清除余额与 token' : '清除本会话 Token'),
+      }, panelShowDeepSeek ? t('chip.clearBalanceAndTokens') : t('chip.clearSessionTokens')),
       React.createElement('div', { className: 'dshw_divider' }),
-      React.createElement(UsageHistoryPanel, { key: 'history-float', sessionId: sessionId }),
-      panelShowZai ? React.createElement(PlanUsagePanel, { key: 'plans-float', compact: true, provider: panelProviderMode.provider }) : null,
+      React.createElement(UsageHistoryPanel, { key: 'history-float', sessionId: sessionId, t: t }),
+      panelShowZai ? React.createElement(PlanUsagePanel, { key: 'plans-float', compact: true, provider: panelProviderMode.provider, t: t }) : null,
       panelShowDeepSeek ? accountsSection() : null,
       React.createElement('div', { style: { marginTop: '8px', textAlign: 'right', fontSize: '10px', color: 'var(--dsw-alias-label-secondary,var(--dsw-alias-label-tertiary,#667085))', userSelect: 'none' } }, 'Harness Control Center v' + WALLET_VERSION)
     )
@@ -1668,9 +1671,19 @@ function WalletChip(props) {
   return React.createElement(React.Fragment, null, chipHost, snapPreviewElement, renderedPanel, confirmOverlay)
 }
 
-var inject = ['slots', 'sessions', 'modelDirectories', 'remote', 'remote.session']
+// The i18n probe in registerWalletLocale() reads ctx.locale; reading an
+// undeclared service throws in cordis, so this declaration is what makes the
+// fallback reachable instead of aborting the whole plugin boot.
+var inject = ['slots', 'sessions', 'modelDirectories', 'remote', 'remote.session', 'locale']
 
 function apply(ctx) {
+  // Registers the dictionary pair and answers whether this host actually has a
+  // locale service. `hasLocale` gates the `locale:` seat on every slot below:
+  // declaring it without a face installed makes the renderer throw
+  // SlotAssemblyError and abort the whole plugin boot.
+  var i18n = registerWalletLocale(ctx)
+  var t = i18n.t
+
   ctx.inject(['sessions'], function (scope) {
     scope.effect(function () { return installCompletionNotifier(scope) }, 'dsh-wallet: completion notifications')
     scope.effect(function () { return installMaidModelMenuGuard() }, 'dsh-wallet: maid model-menu repaint guard')
@@ -1678,7 +1691,7 @@ function apply(ctx) {
   })
   ctx.inject(['slots', 'conversation', 'modelDirectories', 'remote', 'remote.session'], function (scope) {
     scope.effect(function () {
-      return scope.slots.register({
+      var chipDef = {
         name: 'conversation.input.left',
         id: 'wallet',
         order: 130,
@@ -1689,7 +1702,9 @@ function apply(ctx) {
             modelDirectory: directory
           }
         }
-      }, WalletChip)
+      }
+      if (i18n.hasLocale) chipDef.locale = i18n.ns
+      return scope.slots.register(chipDef, WalletChip)
     }, 'dsh-wallet: chip registration')
   })
   // Host settings panel section (dsh rc.7 settings cards): order 40 sits
@@ -1698,11 +1713,11 @@ function apply(ctx) {
   // root, so older hosts without settings cards keep loading the wallet.
   if (ctx.slots && typeof ctx.slots.inject === 'function') {
     ctx.slots.inject('settings.section', function () {
-      return ctx.slots.register({
+      var sectionDef = {
         name: 'settings.section',
         id: 'wallet',
         order: 40,
-        label: function () { return '\u94b1\u5305' },
+        label: function () { return t('settings.nav') },
         inject: function () {
           return {
             modelAware: true,
@@ -1710,11 +1725,13 @@ function apply(ctx) {
             modelDirectories: ctx.modelDirectories
           }
         }
-      }, WalletSettingsSection)
+      }
+      if (i18n.hasLocale) sectionDef.locale = i18n.ns
+      return ctx.slots.register(sectionDef, WalletSettingsSection)
     })
     try {
       ctx.slots.inject('sidebar.footer.action', function () {
-        return ctx.slots.register({
+        var ringDef = {
           name: 'sidebar.footer.action',
           id: 'wallet-peak-ring',
           order: 50,
@@ -1725,7 +1742,9 @@ function apply(ctx) {
               modelDirectories: ctx.modelDirectories
             }
           }
-        }, PeakRingFooter)
+        }
+        if (i18n.hasLocale) ringDef.locale = i18n.ns
+        return ctx.slots.register(ringDef, PeakRingFooter)
       })
     } catch (e) { /* host without the sidebar footer slot */ }
   }

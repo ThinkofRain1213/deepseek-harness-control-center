@@ -1,5 +1,8 @@
 function WalletSettingsSection(props) {
   props = props || {}
+  // `t` arrives through the renderer's locale seat when the slot registration
+  // declared `locale:`; the dictionary fallback keeps older hosts working.
+  var t = typeof props.t === 'function' ? props.t : walletT
   var close = typeof props.close === 'function' ? props.close : null
   var settingsSectionRef = React.useRef(null)
   var [snapshot, setSnapshot] = React.useState(null)
@@ -136,12 +139,12 @@ function WalletSettingsSection(props) {
     fetch('/api/wallet/accounts').then(function (resp) { return resp.json() }).then(function (json) {
       if (!stopped && json && json.ok) {
         setAccounts(json)
-        setAccountsError(json.storage && json.storage.locked ? '账户加密文件无法解密，已锁定写入以保护原数据' : null)
+        setAccountsError(json.storage && json.storage.locked ? t('settings.accountEncryptedFileLocked') : null)
       }
-    }).catch(function () { if (!stopped) setAccountsError('\u8d26\u6237\u63a5\u53e3\u4e0d\u53ef\u7528') })
+    }).catch(function () { if (!stopped) setAccountsError(t('settings.accountApiUnavailable')) })
     fetch('/api/wallet/health').then(function (resp) { return resp.json() }).then(function (json) {
       if (!stopped && json && json.ok) setHealth(json)
-    }).catch(function () { if (!stopped) setHealthNotice('健康检查不可用') })
+    }).catch(function () { if (!stopped) setHealthNotice(t('settings.healthCheckUnavailable')) })
     try {
       var savedLayout = compatibility.storage.getItem(CHIP_LAYOUT_KEY)
       var dock = savedLayout === null ? 'home' : normalizeChipLayout(JSON.parse(savedLayout)).dock
@@ -151,21 +154,21 @@ function WalletSettingsSection(props) {
   }, [])
 
   function refreshHealth() {
-    setHealthNotice('正在检测…')
+    setHealthNotice(t('settings.checkingHealth'))
     fetch('/api/wallet/health').then(function (resp) { return resp.json() }).then(function (json) {
-      if (json && json.ok) { setHealth(json); setHealthNotice('检测完成') }
-      else setHealthNotice('检测失败')
-    }).catch(function () { setHealthNotice('检测失败') })
+      if (json && json.ok) { setHealth(json); setHealthNotice(t('settings.healthCheckComplete')) }
+      else setHealthNotice(t('settings.healthCheckFailed'))
+    }).catch(function () { setHealthNotice(t('settings.healthCheckFailed')) })
   }
 
   function refreshPricing() {
-    setHealthNotice('正在同步官方价格…')
+    setHealthNotice(t('settings.syncingOfficialPricing'))
     fetch('/api/wallet/pricing/refresh', { method: 'POST' }).then(function (resp) { return resp.json() }).then(function (json) {
       if (json && json.ok) {
         setHealth(function (current) { return current ? Object.assign({}, current, { pricing: json.pricing }) : current })
-        setHealthNotice(json.pricing && json.pricing.status === 'synced' ? '官方价格已同步' : '已保留内置价格，等待复核')
-      } else setHealthNotice('价格同步失败')
-    }).catch(function () { setHealthNotice('价格同步失败') })
+        setHealthNotice(json.pricing && json.pricing.status === 'synced' ? t('settings.officialPricingSynced') : t('settings.keptBuiltinPricingPendingReview'))
+      } else setHealthNotice(t('settings.pricingSyncFailed'))
+    }).catch(function () { setHealthNotice(t('settings.pricingSyncFailed')) })
   }
 
   function copyDiagnostics() {
@@ -196,11 +199,11 @@ function WalletSettingsSection(props) {
     var text = JSON.stringify(safe, null, 2)
     try {
       if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        navigator.clipboard.writeText(text).then(function () { setHealthNotice('诊断信息已复制') }).catch(function () { setHealthNotice('复制失败') })
+        navigator.clipboard.writeText(text).then(function () { setHealthNotice(t('settings.diagnosticsCopied')) }).catch(function () { setHealthNotice(t('settings.copyFailed')) })
         return
       }
     } catch (e) { /* fall through to the message */ }
-    setHealthNotice('当前环境不支持自动复制')
+    setHealthNotice(t('settings.autoCopyUnsupported'))
   }
 
   function persistVisibility(next) {
@@ -297,7 +300,7 @@ function WalletSettingsSection(props) {
   }
 
   function saveThreshold(valueArg) {
-    if (usageLocked) { setThresholdNotice('用量账本已锁定，无法保存'); return }
+    if (usageLocked) { setThresholdNotice(t('settings.usageLedgerLockedCannotSave')); return }
     var value = Number.parseFloat(valueArg !== undefined ? valueArg : thresholdDraft)
     if (!Number.isFinite(value)) return
     value = Math.min(100000, Math.max(0, Math.round(value * 100) / 100))
@@ -308,10 +311,10 @@ function WalletSettingsSection(props) {
     }).then(function (resp) { return resp.json() }).then(function (json) {
       if (json && json.ok) {
         setThresholdDraft(json.threshold.toFixed(2))
-        setThresholdNotice('\u5df2\u4fdd\u5b58')
+        setThresholdNotice(t('settings.saved'))
         if (snapshot) { snapshot.threshold = json.threshold; setSnapshot(Object.assign({}, snapshot)) }
       }
-    }).catch(function () { setThresholdNotice('\u4fdd\u5b58\u5931\u8d25') })
+    }).catch(function () { setThresholdNotice(t('settings.saveFailed')) })
   }
 
   function applyCustomPriceResponse(json) {
@@ -322,14 +325,14 @@ function WalletSettingsSection(props) {
   }
 
   function saveCustomPrice() {
-    if (usageLocked) { setPriceNotice('用量账本已锁定，无法保存'); return }
+    if (usageLocked) { setPriceNotice(t('settings.usageLedgerLockedCannotSave')); return }
     var numeric = ['input', 'cacheRead', 'cacheWrite', 'output'].reduce(function (out, key) {
       var value = Number.parseFloat(priceDraft[key])
       out[key] = Number.isFinite(value) && value >= 0 ? value : null
       return out
     }, {})
     if (!priceDraft.provider.trim() || !priceDraft.model.trim() || Object.values(numeric).some(function (value) { return value === null })) {
-      setPriceNotice('请填写 Provider、模型及四项非负价格')
+      setPriceNotice(t('settings.fillProviderModelAndPrices'))
       return
     }
     var windows = (Array.isArray(priceDraft.windows) ? priceDraft.windows : []).map(function (window) {
@@ -352,10 +355,10 @@ function WalletSettingsSection(props) {
     if (windows.some(function (window) {
       return !window.label || window.days.length === 0 || !/^([01]\d|2[0-3]):[0-5]\d$/.test(window.start || '') || !/^([01]\d|2[0-3]):[0-5]\d$/.test(window.end || '') || window.start === window.end || ['input', 'cacheRead', 'cacheWrite', 'output'].some(function (key) { return window[key] === null })
     })) {
-      setPriceNotice('请完整填写分时段名称、星期、起止时间及四项价格')
+      setPriceNotice(t('settings.fillWindowFieldsComplete'))
       return
     }
-    setPriceNotice('正在保存…')
+    setPriceNotice(t('settings.saving'))
     fetch('/api/wallet/custom-prices', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -372,23 +375,23 @@ function WalletSettingsSection(props) {
       } })
     }).then(function (resp) { return resp.json().then(function (json) { return { ok: resp.ok, json: json } }) }).then(function (result) {
       if (!result.ok || !applyCustomPriceResponse(result.json)) throw new Error(result.json && result.json.error ? result.json.error : 'save-failed')
-      setPriceNotice('已保存；本会话与历史账本按当前自定义规则重新估算')
+      setPriceNotice(t('settings.priceSavedReestimated'))
     }).catch(function (error) {
-      setPriceNotice(error && error.message === 'official-provider-not-allowed' ? '官方计费 Provider 不能设置第三方价格' : '保存失败，请检查时区、时段是否有效或重叠')
+      setPriceNotice(error && error.message === 'official-provider-not-allowed' ? t('settings.officialProviderNoThirdPartyPrice') : t('settings.priceSaveFailedCheckWindows'))
     })
   }
 
   function removeCustomPrice(rule) {
     if (usageLocked) return
-    setPriceNotice('正在删除…')
+    setPriceNotice(t('settings.deleting'))
     fetch('/api/wallet/custom-prices', {
       method: 'DELETE',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ provider: rule.provider, model: rule.model })
     }).then(function (resp) { return resp.json().then(function (json) { return { ok: resp.ok, json: json } }) }).then(function (result) {
       if (!result.ok || !applyCustomPriceResponse(result.json)) throw new Error('delete-failed')
-      setPriceNotice('已删除价格规则')
-    }).catch(function () { setPriceNotice('删除失败') })
+      setPriceNotice(t('settings.priceRuleDeleted'))
+    }).catch(function () { setPriceNotice(t('settings.deleteFailed')) })
   }
 
   function editCustomPrice(rule) {
@@ -414,7 +417,7 @@ function WalletSettingsSection(props) {
         }
       })
     })
-    setPriceNotice('已载入，可修改后保存')
+    setPriceNotice(t('settings.loadedEditableThenSave'))
   }
 
   function addCustomPriceWindow() {
@@ -422,7 +425,7 @@ function WalletSettingsSection(props) {
       var windows = Array.isArray(current.windows) ? current.windows.slice() : []
       var fallback = function (key) { return current[key] === '' ? '' : String(current[key]) }
       windows.push({
-        label: '分时段 ' + (windows.length + 1),
+        label: t('settings.windowLabelSuffix') + (windows.length + 1),
         days: [1, 2, 3, 4, 5],
         start: '00:00',
         end: '09:00',
@@ -464,7 +467,7 @@ function WalletSettingsSection(props) {
 
   function useCurrentRouteForPrice() {
     if (!settingsModelSelection || typeof settingsModelSelection.provider !== 'string' || typeof settingsModelSelection.model !== 'string') {
-      setPriceNotice('当前会话尚未选择可识别的模型')
+      setPriceNotice(t('settings.noRecognizableModelInSession'))
       return
     }
     setPriceDraft(function (current) {
@@ -473,20 +476,20 @@ function WalletSettingsSection(props) {
         model: settingsModelSelection.model
       })
     })
-    setPriceNotice('已填入当前会话的 Provider 与模型')
+    setPriceNotice(t('settings.filledSessionProviderModel'))
   }
 
   function reloadAccounts() {
     fetch('/api/wallet/accounts').then(function (resp) { return resp.json() }).then(function (json) {
       if (json && json.ok) {
         setAccounts(json)
-        setAccountsError(json.storage && json.storage.locked ? '账户加密文件无法解密，已锁定写入以保护原数据' : null)
+        setAccountsError(json.storage && json.storage.locked ? t('settings.accountEncryptedFileLocked') : null)
       }
     }).catch(function () { /* ignore */ })
     fetch('/api/wallet/snapshot').then(function (resp) { return resp.json() }).then(function (json) {
       if (json && json.ok) {
         setSnapshot(json)
-        // 切换账号后阈值输入框立即跳到该账号货币的阈值
+        // Switching accounts jumps the threshold input to that account currency.
         if (json.threshold !== undefined && json.threshold !== null) setThresholdDraft(json.threshold.toFixed(2))
       }
     }).catch(function () { /* ignore */ })
@@ -503,16 +506,16 @@ function WalletSettingsSection(props) {
     }).then(function (resp) { return resp.json() }).then(function (json) {
       if (json && json.ok) {
         setNameDraft(''); setKeyDraft('')
-        setAccountNotice(json.synced ? '\u5df2\u6dfb\u52a0\u5e76\u8bbe\u4e3a\u5f53\u524d\u8d26\u6237' : '\u5df2\u6dfb\u52a0')
+        setAccountNotice(json.synced ? t('settings.addedAndSetAsCurrent') : t('settings.added'))
         reloadAccounts()
       } else {
-        setAccountNotice(json && json.error ? String(json.error) : '\u6dfb\u52a0\u5931\u8d25')
+        setAccountNotice(json && json.error ? String(json.error) : t('settings.addFailed'))
       }
-    }).catch(function () { setAccountNotice('\u6dfb\u52a0\u5931\u8d25') })
+    }).catch(function () { setAccountNotice(t('settings.addFailed')) })
   }
 
   function activateAccount(id, name) {
-    if (!window.confirm('\u5207\u6362\u5230\u300c' + name + '\u300d\uff1f\u540e\u7eed LLM \u8bf7\u6c42\u5c06\u6309\u8be5\u8d26\u6237\u8ba1\u8d39\u3002')) return
+    if (!window.confirm(t('settings.switchToAccountPrefix') + name + t('settings.switchToAccountSuffix'))) return
     setSwitchingId(id)
     fetch('/api/wallet/accounts/activate', {
       method: 'POST',
@@ -520,23 +523,23 @@ function WalletSettingsSection(props) {
       body: JSON.stringify({ id: id })
     }).then(function (resp) { return resp.json() }).then(function (json) {
       setSwitchingId(null)
-      setAccountNotice(json && json.ok ? '\u5df2\u5207\u6362\u5230\u300c' + name + '\u300d' : (json && json.error ? String(json.error) : '\u5207\u6362\u5931\u8d25'))
-      // 阈值输入框零等待跳转: 激活响应自带该账号阈值
+      setAccountNotice(json && json.ok ? t('settings.switchedToAccountPrefix') + name + '\u300d' : (json && json.error ? String(json.error) : t('settings.switchFailed')))
+      // Zero-wait threshold jump: the activate response carries the account threshold.
       if (json && json.ok && json.threshold !== undefined && json.threshold !== null) setThresholdDraft(json.threshold.toFixed(2))
       reloadAccounts()
-    }).catch(function () { setSwitchingId(null); setAccountNotice('\u5207\u6362\u5931\u8d25') })
+    }).catch(function () { setSwitchingId(null); setAccountNotice(t('settings.switchFailed')) })
   }
 
   function removeAccount(id, name) {
-    if (!window.confirm('\u5220\u9664\u8d26\u6237\u300c' + name + '\u300d\uff1f')) return
+    if (!window.confirm(t('settings.deleteAccountPrefix') + name + '\u300d\uff1f')) return
     fetch('/api/wallet/accounts/remove', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ id: id })
     }).then(function (resp) { return resp.json() }).then(function (json) {
-      setAccountNotice(json && json.ok ? '\u5df2\u5220\u9664' : '\u5220\u9664\u5931\u8d25')
+      setAccountNotice(json && json.ok ? t('settings.deleted') : t('settings.deleteFailed'))
       reloadAccounts()
-    }).catch(function () { setAccountNotice('\u5220\u9664\u5931\u8d25') })
+    }).catch(function () { setAccountNotice(t('settings.deleteFailed')) })
   }
 
   var bal = snapshot && snapshot.balance ? snapshot.balance : null
@@ -548,18 +551,18 @@ function WalletSettingsSection(props) {
   var settingsPolicy = snapshot && snapshot.pricingWindows ? snapshot.pricingWindows : null
   var peakClockApplicable = peakClockAppliesFor(settingsProviderMode, settingsPolicy)
   var peakClockHint = !ringEnabled
-    ? '已关闭；仅 DeepSeek 官方峰谷模型使用'
+    ? t('settings.offOfficialPeakOnly')
     : peakClockApplicable
-      ? '当前模型适用峰谷计价，侧边栏底部显示'
+      ? t('settings.modelSupportsPeakPricing')
       : settingsProviderMode.kind === 'zai'
-        ? '当前 Z.ai，已自动隐藏；切回 DeepSeek 官方模型恢复'
+        ? t('settings.zaiAutoHidden')
         : settingsProviderMode.kind === 'third'
-          ? '当前第三方模型，已自动隐藏；切回 DeepSeek 官方模型恢复'
+          ? t('settings.thirdPartyAutoHidden')
           : settingsProviderMode.kind === 'deepseek'
-            ? '当前模型不适用峰谷计价'
-            : '仅当前模型为 DeepSeek 官方峰谷模型时显示'
+            ? t('settings.modelNoPeakPricing')
+            : t('settings.showOnlyForOfficialPeakModel')
 
-  // —— 余额卡 ——
+  // --- Balance card ---
   var lowBalance = snapshot && snapshot.lowBalance === true
   var sessionCost = snapshot && snapshot.session && snapshot.session.official && snapshot.session.official.cost !== null && snapshot.session.official.cost !== undefined ? sessionCostText(snapshot.session.official.cost, snapshot && snapshot.balance ? snapshot.balance.currency : null) : '--'
   var currencyCode = bal && typeof bal.currency === 'string' ? bal.currency : 'CNY'
@@ -568,27 +571,27 @@ function WalletSettingsSection(props) {
   var grantedText = primaryBalance ? fmtCurrency(primaryBalance.granted_balance, primaryBalance.currency) : '--'
   rows.push(React.createElement('div', { key: 'head', className: 'dshw_settingsHeader' },
     React.createElement('div', null,
-      React.createElement('div', { className: 'dshw_settingsHeading' }, 'DeepSeek 账户中心'),
-      React.createElement('div', { className: 'dshw_settingsLead' }, '余额、展示、提醒与账户切换'))))
+      React.createElement('div', { className: 'dshw_settingsHeading' }, t('settings.accountCenterTitle')),
+      React.createElement('div', { className: 'dshw_settingsLead' }, t('settings.accountCenterLead')))))
   rows.push(React.createElement('div', { key: 'balcard', className: lowBalance ? 'dshw_settingsHero dshw_low' : 'dshw_settingsHero' },
     React.createElement('div', { className: 'dshw_settingsHeroTop' },
-      React.createElement('span', { className: 'dshw_settingsHeroLabel' }, 'DeepSeek 官方余额'),
-      React.createElement('span', { className: 'dshw_accountPill', title: activeName || '跟随系统 Key' }, activeName ? '当前 · ' + activeName : '跟随系统 Key'),
+      React.createElement('span', { className: 'dshw_settingsHeroLabel' }, t('settings.officialBalance')),
+      React.createElement('span', { className: 'dshw_accountPill', title: activeName || t('settings.followSystemKey') }, activeName ? t('settings.currentAccountPrefix') + activeName : t('settings.followSystemKey')),
       React.createElement('span', { className: 'dshw_balFill' }),
-      lowBalance ? React.createElement('span', { className: 'dshw_balWarn' }, '余额偏低') : null),
+      lowBalance ? React.createElement('span', { className: 'dshw_balWarn' }, t('settings.lowBalance')) : null),
     React.createElement('div', { className: 'dshw_settingsHeroMain' },
       React.createElement('strong', { className: 'dshw_settingsBalance' }, balanceText),
       React.createElement('span', { className: 'dshw_settingsSpend' },
-        React.createElement('span', { className: 'dshw_muted' }, sessionCostLabel(currencyCode)),
+        React.createElement('span', { className: 'dshw_muted' }, sessionCostLabel(currencyCode, t)),
         React.createElement('strong', null, sessionCost))),
     React.createElement('div', { className: 'dshw_settingsHeroMeta' },
-      React.createElement('span', null, '充值 ' + toppedText),
+      React.createElement('span', null, t('settings.toppedUpPrefix') + toppedText),
       React.createElement('span', { className: 'dshw_balDot' }, '·'),
-      React.createElement('span', null, '赠送 ' + grantedText),
+      React.createElement('span', null, t('settings.grantedPrefix') + grantedText),
       React.createElement('span', { className: 'dshw_balDot' }, '·'),
       React.createElement('span', null, currencyCode))))
 
-  // —— 健康检查 ——
+  // --- Health check ---
   var hostHealth = health && health.host ? health.host : null
   var hostCompatibility = hostHealth && hostHealth.compatibility ? hostHealth.compatibility : null
   var pricing = health && health.pricing ? health.pricing : null
@@ -596,130 +599,130 @@ function WalletSettingsSection(props) {
   var usageStorage = health && health.usage ? health.usage : null
   var usageLocked = !!((snapshot && snapshot.usageStorage && snapshot.usageStorage.locked) || (usageStorage && usageStorage.locked))
   var compatibilityText = hostCompatibility
-    ? (hostCompatibility.status === 'compatible' ? '已声明兼容' : hostCompatibility.status === 'upgrade-recommended' ? '建议升级' : '尚未验证')
-    : '检测中'
+    ? (hostCompatibility.status === 'compatible' ? t('settings.compatDeclared') : hostCompatibility.status === 'upgrade-recommended' ? t('settings.upgradeRecommended') : t('settings.notYetVerified'))
+    : t('settings.detecting')
   var pricingText = pricing
     ? (pricing.status === 'synced'
-      ? '已同步'
+      ? t('settings.synced')
       : pricing.status === 'review-required'
-        ? '待复核'
+        ? t('settings.pendingReview')
         : pricing.status === 'offline'
-          ? (String(pricing.ruleVersion || '').indexOf('official-') === 0 ? '离线，沿用已验证规则' : '离线，使用内置规则')
-          : '内置规则')
-    : '检测中'
+          ? (String(pricing.ruleVersion || '').indexOf('official-') === 0 ? t('settings.offlineUsingVerifiedRules') : t('settings.offlineUsingBuiltinRules'))
+          : t('settings.builtinRules'))
+    : t('settings.detecting')
   var storageText = accountStorage
     ? (accountStorage.status === 'locked'
-      ? '无法解密（已锁定写入）'
+      ? t('settings.undecryptableWritesLocked')
       : accountStorage.status === 'recovered'
-        ? '已从加密备份恢复'
+        ? t('settings.restoredFromEncryptedBackup')
         : accountStorage.status === 'error'
-          ? '加密存储异常'
-          : accountStorage.scheme === 'windows-dpapi' ? 'Windows DPAPI 加密' : 'AES-GCM 加密')
-    : '检测中'
+          ? t('settings.encryptedStorageError')
+          : accountStorage.scheme === 'windows-dpapi' ? t('settings.encryptionWindowsDpapi') : t('settings.encryptionAesGcm'))
+    : t('settings.detecting')
   var usageStorageText = usageStorage
     ? (usageStorage.status === 'locked'
-      ? '损坏，已锁定写入'
+      ? t('settings.corruptedWritesLocked')
       : usageStorage.status === 'recovered'
-        ? '已从备份恢复'
+        ? t('settings.restoredFromBackup')
         : usageStorage.status === 'error'
-          ? '写入失败，请检查磁盘权限'
-          : usageStorage.backup ? '正常（含备份）' : '正常')
-    : '检测中'
+          ? t('settings.writeFailedCheckDiskPermissions')
+          : usageStorage.backup ? t('settings.okWithBackup') : t('plan.dataOk'))
+    : t('settings.detecting')
   rows.push(React.createElement('div', { key: 'health', className: 'dshw_setCard', style: { display: 'block' } },
     React.createElement('div', { className: 'dshw_settingsGroupHeader' },
-      React.createElement('div', { className: 'dshw_settingsGroupTitle' }, 'Harness 健康检查'),
-      React.createElement('div', { className: 'dshw_settingsGroupHint' }, healthNotice || '不包含 API Key 或本地路径')),
+      React.createElement('div', { className: 'dshw_settingsGroupTitle' }, t('settings.harnessHealthCheck')),
+      React.createElement('div', { className: 'dshw_settingsGroupHint' }, healthNotice || t('settings.noApiKeyOrLocalPaths'))),
     React.createElement('div', { className: 'dshw_settingsHeroMeta' },
-      React.createElement('span', null, 'Harness v' + (hostHealth && hostHealth.version ? hostHealth.version : '未识别')),
+      React.createElement('span', null, 'Harness v' + (hostHealth && hostHealth.version ? hostHealth.version : t('settings.unrecognized'))),
       React.createElement('span', { className: 'dshw_balDot' }, '·'),
-      React.createElement('span', null, '插件 v' + WALLET_VERSION),
+      React.createElement('span', null, t('settings.pluginVersionPrefix') + WALLET_VERSION),
       React.createElement('span', { className: 'dshw_balDot' }, '·'),
-      React.createElement('span', null, '兼容：' + compatibilityText)),
+      React.createElement('span', null, t('settings.compatibilityPrefix') + compatibilityText)),
     React.createElement('div', { className: 'dshw_settingsHeroMeta' },
-      React.createElement('span', null, '价格规则：' + pricingText),
+      React.createElement('span', null, t('settings.pricingRulesPrefix') + pricingText),
       React.createElement('span', { className: 'dshw_balDot' }, '·'),
-      React.createElement('span', null, '账户存储：' + storageText),
+      React.createElement('span', null, t('settings.accountStoragePrefix') + storageText),
       React.createElement('span', { className: 'dshw_balDot' }, '·'),
-      React.createElement('span', null, '用量账本：' + usageStorageText)),
+      React.createElement('span', null, t('settings.usageLedgerPrefix') + usageStorageText)),
     React.createElement('div', { className: 'dshw_settingsFooterActions', style: { marginTop: '8px' } },
-      React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: refreshHealth }, '重新检测'),
-      React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: refreshPricing }, '同步官方价格'),
-      React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: !health, onClick: copyDiagnostics }, '复制诊断信息'))))
+      React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: refreshHealth }, t('settings.recheck')),
+      React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: refreshPricing }, t('settings.syncOfficialPricing')),
+      React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: !health, onClick: copyDiagnostics }, t('settings.copyDiagnostics')))))
 
-  // —— 设置卡 ——
+  // --- Settings cards ---
   var cells = []
   cells.push(React.createElement('div', { key: 'vis', className: 'dshw_setCell' },
     React.createElement('span', { className: 'dshw_settingsFieldLabel' },
-      React.createElement('strong', null, '显示内容'),
-      React.createElement('span', null, '选择标签中的数据来源')),
+      React.createElement('strong', null, t('settings.displayContent')),
+      React.createElement('span', null, t('settings.chooseTabDataSource'))),
     React.createElement('span', { className: 'dshw_balFill' }),
     React.createElement('label', { className: 'dshw_chipToggle' },
       React.createElement('input', {
         type: 'checkbox', checked: visibility.official,
-        'aria-label': '\u663e\u793a\u5b98\u65b9\u6570\u636e',
+        'aria-label': t('settings.showOfficialData'),
         onChange: function (event) { persistVisibility({ official: event.target.checked, third: visibility.third }) }
-      }), '\u5b98\u65b9'),
+      }), t('settings.official')),
     React.createElement('label', { className: 'dshw_chipToggle' },
       React.createElement('input', {
         type: 'checkbox', checked: visibility.third,
-        'aria-label': '\u663e\u793a\u7b2c\u4e09\u65b9 token',
+        'aria-label': t('settings.showThirdPartyTokens'),
         onChange: function (event) { persistVisibility({ official: visibility.official, third: event.target.checked }) }
-      }), '\u7b2c\u4e09\u65b9')))
+      }), t('settings.thirdParty'))))
   cells.push(React.createElement('div', { key: 'chip-style', className: 'dshw_setCell' },
     React.createElement('span', { className: 'dshw_settingsFieldLabel' },
-      React.createElement('strong', null, '输入框标签'),
-      React.createElement('span', null, chipStyle === 'hidden' ? '已隐藏；提醒与设置仍运行' : '显示在输入框工具栏中')),
+      React.createElement('strong', null, t('settings.inputLabel')),
+      React.createElement('span', null, chipStyle === 'hidden' ? t('settings.hiddenAlertsStillRun') : t('settings.shownInInputToolbar'))),
     React.createElement('span', { className: 'dshw_balFill' }),
-    React.createElement('label', { className: 'dshw_switch', title: '关闭只隐藏输入框标签，不停止提醒、设置、套餐或账本' },
+    React.createElement('label', { className: 'dshw_switch', title: t('settings.offHidesLabelOnly') },
       React.createElement('input', {
         type: 'checkbox',
         checked: chipStyle !== 'hidden',
-        'aria-label': '显示输入框标签',
+        'aria-label': t('settings.showInputLabel'),
         onChange: function (event) { persistChipStyle(event.target.checked ? 'standard' : 'hidden') }
       }),
       React.createElement('span', { className: 'dshw_track', 'aria-hidden': 'true' }),
       React.createElement('span', { className: 'dshw_knob', 'aria-hidden': 'true' }))))
   cells.push(React.createElement('div', { key: 'balance-only', className: 'dshw_setCell' },
     React.createElement('span', { className: 'dshw_settingsFieldLabel' },
-      React.createElement('strong', null, '仅显示余额'),
-      React.createElement('span', null, '隐藏本场、Token 与充值；Z.ai 仅保留 5h 剩余')),
+      React.createElement('strong', null, t('settings.balanceOnly')),
+      React.createElement('span', null, t('settings.balanceOnlyHint'))),
     React.createElement('span', { className: 'dshw_balFill' }),
-    React.createElement('label', { className: 'dshw_switch', title: '精简输入框标签为当前 Provider 的首要剩余额度' },
+    React.createElement('label', { className: 'dshw_switch', title: t('settings.balanceOnlyTitle') },
       React.createElement('input', {
         type: 'checkbox',
         checked: balanceOnly,
         disabled: chipStyle === 'hidden',
-        'aria-label': '输入框标签仅显示余额',
+        'aria-label': t('settings.inputLabelBalanceOnly'),
         onChange: function (event) { persistBalanceOnly(event.target.checked) }
       }),
       React.createElement('span', { className: 'dshw_track', 'aria-hidden': 'true' }),
       React.createElement('span', { className: 'dshw_knob', 'aria-hidden': 'true' }))))
   cells.push(React.createElement('div', { key: 'sc', className: 'dshw_setCell' },
     React.createElement('span', { className: 'dshw_settingsFieldLabel' },
-      React.createElement('strong', null, '标签比例'),
-      React.createElement('span', null, '按当前停靠位置限制上限')),
+      React.createElement('strong', null, t('settings.labelScale')),
+      React.createElement('span', null, t('settings.labelScaleHint'))),
     React.createElement('span', { className: 'dshw_balFill' }),
     React.createElement('span', { className: 'dshw_scaleControl' },
       React.createElement('input', {
         className: 'dshw_scaleInput', type: 'range', min: '75', max: String(scaleMax), step: '5',
         value: String(Math.round(scale * 100)),
-        'aria-label': '\u94b1\u5305\u82af\u7247\u6bd4\u4f8b',
+        'aria-label': t('settings.walletChipScale'),
         onInput: function (event) { persistScale(Number.parseFloat(event.target.value) / 100) },
         onChange: function (event) { persistScale(Number.parseFloat(event.target.value) / 100) }
       }),
       React.createElement('span', { className: 'dshw_scaleValue' }, Math.round(scale * 100) + '%'))))
   cells.push(React.createElement('div', { key: 'quad', className: 'dshw_setCell wide dshw_reminderCard' },
     React.createElement('div', { className: 'dshw_settingsGroupHeader' },
-      React.createElement('div', { className: 'dshw_settingsGroupTitle' }, '提醒与会话'),
-      React.createElement('div', { className: 'dshw_settingsGroupHint' }, '提醒方式、低余额状态与会话控制')),
+      React.createElement('div', { className: 'dshw_settingsGroupTitle' }, t('settings.alertsAndSession')),
+      React.createElement('div', { className: 'dshw_settingsGroupHint' }, t('settings.alertsAndSessionHint'))),
     React.createElement('div', { className: 'dshw_settingChoices' },
       React.createElement('div', { className: 'dshw_settingChoice' },
         React.createElement('span', { className: 'dshw_settingChoiceCopy' },
-          React.createElement('strong', null, '完成提醒'),
-          React.createElement('span', null, '对话结束后通知')),
+          React.createElement('strong', null, t('settings.completionAlert')),
+          React.createElement('span', null, t('settings.notifyAfterConversation'))),
         React.createElement('select', {
           className: 'dshw_select',
-          'aria-label': '完成提醒',
+          'aria-label': t('settings.completionAlert'),
           value: notifyEnabled ? notifyTimeout : 'off',
           onChange: function (event) {
             var v = event.target.value
@@ -727,16 +730,16 @@ function WalletSettingsSection(props) {
             persistNotify(true, v)
           }
         },
-          React.createElement('option', { value: 'off' }, '关闭'),
-          React.createElement('option', { value: '5' }, '5 秒'),
-          React.createElement('option', { value: '10' }, '10 秒'),
-          React.createElement('option', { value: '30' }, '30 秒'),
-          React.createElement('option', { value: '60' }, '60 秒'),
-          React.createElement('option', { value: 'keep' }, '一直保留'))),
+          React.createElement('option', { value: 'off' }, t('settings.off')),
+          React.createElement('option', { value: '5' }, t('settings.seconds5')),
+          React.createElement('option', { value: '10' }, t('settings.seconds10')),
+          React.createElement('option', { value: '30' }, t('settings.seconds30')),
+          React.createElement('option', { value: '60' }, t('settings.seconds60')),
+          React.createElement('option', { value: 'keep' }, t('settings.keepForever')))),
       React.createElement('div', { className: 'dshw_settingChoice' },
         React.createElement('span', { className: 'dshw_settingChoiceCopy' },
-          React.createElement('strong', null, '低余额阈值'),
-          React.createElement('span', null, thresholdNotice || (usageLocked ? '用量账本已锁定，无法保存' : currencyCode + ' · 输入后自动保存'))),
+          React.createElement('strong', null, t('settings.lowBalanceThreshold')),
+          React.createElement('span', null, thresholdNotice || (usageLocked ? t('settings.usageLedgerLockedCannotSave') : currencyCode + t('settings.autoSaveSuffix')))),
         React.createElement('span', { className: 'dshw_settingsInline' },
           React.createElement('span', { style: { fontWeight: 700, color: 'var(--dsw-alias-label-primary,inherit)' } }, currencyCode === 'USD' ? '$' : '¥'),
           React.createElement('input', {
@@ -744,32 +747,32 @@ function WalletSettingsSection(props) {
             style: { width: '64px' },
             value: thresholdDraft,
             disabled: usageLocked,
-            title: usageLocked ? '用量账本存储已锁定，无法保存阈值' : '低于此余额时提醒；0 表示关闭',
-            'aria-label': '低余额阈值 (' + currencyCode + ')',
+            title: usageLocked ? t('settings.usageLedgerLockedThreshold') : t('settings.thresholdHint'),
+            'aria-label': t('settings.lowBalanceThresholdPrefix') + currencyCode + ')',
             onInput: function (event) { setThresholdDraft(event.target.value); queueThresholdSave(event.target.value) },
             onChange: function (event) { setThresholdDraft(event.target.value); queueThresholdSave(event.target.value) }
           }),
           React.createElement('span', { className: 'dshw_muted' }, currencyCode))),
       React.createElement('div', { className: 'dshw_settingChoice' },
         React.createElement('span', { className: 'dshw_settingChoiceCopy' },
-          React.createElement('strong', null, '低余额闪烁'),
-          React.createElement('span', null, '红框向内轻微闪烁')),
+          React.createElement('strong', null, t('settings.lowBalanceBlink')),
+          React.createElement('span', null, t('settings.lowBalanceBlinkHint'))),
         React.createElement('label', { className: 'dshw_switch' },
           React.createElement('input', {
             type: 'checkbox', checked: lowBlinkEnabled,
-            'aria-label': '低余额时红色闪烁',
+            'aria-label': t('settings.lowBalanceBlinkAria'),
             onChange: function (event) { persistLowBlink(event.target.checked) }
           }),
           React.createElement('span', { className: 'dshw_track', 'aria-hidden': 'true' }),
           React.createElement('span', { className: 'dshw_knob', 'aria-hidden': 'true' }))),
       React.createElement('div', { className: 'dshw_settingChoice' },
         React.createElement('span', { className: 'dshw_settingChoiceCopy' },
-          React.createElement('strong', null, '永久删除会话'),
-          React.createElement('span', null, pdSupported ? '在会话菜单中提供入口' : '当前宿主不支持')),
-        React.createElement('label', { className: 'dshw_switch', title: pdSupported ? '在会话菜单中显示永久删除' : '当前宿主未提供永久删除能力' },
+          React.createElement('strong', null, t('settings.deleteSessionPermanently')),
+          React.createElement('span', null, pdSupported ? t('settings.sessionMenuEntry') : t('settings.hostUnsupported'))),
+        React.createElement('label', { className: 'dshw_switch', title: pdSupported ? t('settings.showPermanentDelete') : t('settings.hostNoPermanentDelete') },
           React.createElement('input', {
             type: 'checkbox', checked: pdSupported && pdEnabled, disabled: !pdSupported,
-            'aria-label': '开启永久删除会话',
+            'aria-label': t('settings.enablePermanentDelete'),
             onChange: function (event) {
               if (!pdSupported) return
               var enabled = event.target.checked
@@ -782,12 +785,12 @@ function WalletSettingsSection(props) {
           React.createElement('span', { className: 'dshw_knob', 'aria-hidden': 'true' }))),
       React.createElement('div', { className: 'dshw_settingChoice' },
         React.createElement('span', { className: 'dshw_settingChoiceCopy' },
-          React.createElement('strong', null, '峰谷时钟'),
+          React.createElement('strong', null, t('settings.peakClock')),
           React.createElement('span', null, peakClockHint)),
         React.createElement('label', { className: 'dshw_switch', title: peakClockHint },
           React.createElement('input', {
             type: 'checkbox', checked: ringEnabled,
-            'aria-label': '显示侧边栏峰谷时钟',
+            'aria-label': t('settings.showSidebarPeakClock'),
             onChange: function (event) {
               var enabled = event.target.checked
               setRingEnabled(enabled)
@@ -800,12 +803,12 @@ function WalletSettingsSection(props) {
           React.createElement('span', { className: 'dshw_knob', 'aria-hidden': 'true' }))),
       React.createElement('div', { className: 'dshw_settingChoice' },
         React.createElement('span', { className: 'dshw_settingChoiceCopy' },
-          React.createElement('strong', null, '峰谷切换提醒'),
-          React.createElement('span', null, '进入高峰/低谷时通知一次')),
-        React.createElement('label', { className: 'dshw_switch', title: '峰谷切换时间点各通知一次，不重复弹出' },
+          React.createElement('strong', null, t('settings.peakSwitchAlert')),
+          React.createElement('span', null, t('settings.peakSwitchNotifyOnce'))),
+        React.createElement('label', { className: 'dshw_switch', title: t('settings.peakSwitchAlertTitle') },
           React.createElement('input', {
             type: 'checkbox', checked: peakNotifyEnabled,
-            'aria-label': '开启峰谷切换提醒',
+            'aria-label': t('settings.enablePeakSwitchAlert'),
             onChange: function (event) {
               var enabled = event.target.checked
               setPeakNotifyEnabled(enabled)
@@ -817,77 +820,77 @@ function WalletSettingsSection(props) {
           React.createElement('span', { className: 'dshw_knob', 'aria-hidden': 'true' }))),
       React.createElement('div', { className: 'dshw_settingChoice' },
         React.createElement('span', { className: 'dshw_settingChoiceCopy' },
-          React.createElement('strong', null, '时钟布局'),
-          React.createElement('span', null, '横向或纵向排布')),
+          React.createElement('strong', null, t('settings.clockLayout')),
+          React.createElement('span', null, t('settings.clockLayoutHint'))),
         React.createElement('select', {
           className: 'dshw_select',
-          'aria-label': '峰谷时钟布局',
+          'aria-label': t('settings.peakClockLayout'),
           value: peakOrient,
           onChange: function (event) { persistPeakOrient(event.target.value) }
         },
-          React.createElement('option', { value: 'horizontal' }, '横向排列'),
-          React.createElement('option', { value: 'vertical' }, '纵向排列'))),
+          React.createElement('option', { value: 'horizontal' }, t('settings.layoutHorizontal')),
+          React.createElement('option', { value: 'vertical' }, t('settings.layoutVertical')))),
       React.createElement('div', { className: 'dshw_settingChoice' },
         React.createElement('span', { className: 'dshw_settingChoiceCopy' },
-          React.createElement('strong', null, '时钟背景'),
-          React.createElement('span', null, peakBackground === 'solid' ? '侧边栏常态保持实色' : '侧边栏透明，悬停实色；悬浮保持实色')),
+          React.createElement('strong', null, t('settings.clockBackground')),
+          React.createElement('span', null, peakBackground === 'solid' ? t('settings.clockBackgroundSolidHint') : t('settings.clockBackgroundTransparentHint'))),
         React.createElement('select', {
           className: 'dshw_select',
-          'aria-label': '峰谷时钟背景',
+          'aria-label': t('settings.peakClockBackground'),
           value: peakBackground,
           onChange: function (event) { persistPeakBackground(event.target.value) }
         },
-          React.createElement('option', { value: 'transparent' }, '透明（悬停实色）'),
-          React.createElement('option', { value: 'solid' }, '实色'))),
+          React.createElement('option', { value: 'transparent' }, t('settings.backgroundTransparent')),
+          React.createElement('option', { value: 'solid' }, t('settings.backgroundSolid')))),
       React.createElement('div', { className: 'dshw_settingChoice' },
         React.createElement('span', { className: 'dshw_settingChoiceCopy' },
-          React.createElement('strong', null, '时钟大小'),
-          React.createElement('span', null, '100% ~ 120% 缩放')),
+          React.createElement('strong', null, t('settings.clockSize')),
+          React.createElement('span', null, t('settings.clockSizeHint'))),
         React.createElement('span', { className: 'dshw_scaleControl' },
           React.createElement('input', {
             className: 'dshw_scaleInput', type: 'range', min: '100', max: '120', step: '5',
             value: String(Math.round(peakScale * 100)),
-            'aria-label': '峰谷时钟卡片比例',
+            'aria-label': t('settings.peakClockCardScale'),
             onInput: function (event) { persistPeakScale(Number.parseFloat(event.target.value) / 100) },
             onChange: function (event) { persistPeakScale(Number.parseFloat(event.target.value) / 100) }
           }),
           React.createElement('span', { className: 'dshw_scaleValue' }, Math.round(peakScale * 100) + '%'))),
       React.createElement('div', { className: 'dshw_settingChoice' },
         React.createElement('span', { className: 'dshw_settingChoiceCopy' },
-          React.createElement('strong', null, '时钟充值按钮'),
-          React.createElement('span', null, '关闭可缩小卡片')),
-        React.createElement('label', { className: 'dshw_switch', title: '关闭充值按钮可进一步收缩时钟卡片' },
+          React.createElement('strong', null, t('settings.clockTopUpButton')),
+          React.createElement('span', null, t('settings.clockTopUpButtonHint'))),
+        React.createElement('label', { className: 'dshw_switch', title: t('settings.clockTopUpButtonTitle') },
           React.createElement('input', {
             type: 'checkbox', checked: peakRecharge,
-            'aria-label': '显示时钟充值按钮',
+            'aria-label': t('settings.showClockTopUpButton'),
             onChange: function (event) { persistPeakRecharge(event.target.checked) }
           }),
           React.createElement('span', { className: 'dshw_track', 'aria-hidden': 'true' }),
           React.createElement('span', { className: 'dshw_knob', 'aria-hidden': 'true' }))),
       React.createElement('div', { className: 'dshw_settingChoice' },
         React.createElement('span', { className: 'dshw_settingChoiceCopy' },
-          React.createElement('strong', null, '时钟位置'),
-          React.createElement('span', null, peakDock === 'free' ? '自由浮动中' : '侧边栏底部（可拖动）')),
+          React.createElement('strong', null, t('settings.clockPosition')),
+          React.createElement('span', null, peakDock === 'free' ? t('settings.clockFreeFloating') : t('settings.clockDockedBottom'))),
         peakDock === 'free' ? React.createElement('button', {
           type: 'button', className: 'dshw_btn',
-          title: '点击归位至侧边栏底部',
+          title: t('settings.clockRedockTitle'),
           onClick: function () { resetPeakDock() }
-        }, '↩ 归位') : React.createElement('span', { className: 'dshw_muted', style: { fontSize: '11px' } }, '固定'))))
+        }, t('settings.redockButton')) : React.createElement('span', { className: 'dshw_muted', style: { fontSize: '11px' } }, t('settings.pinned')))))
   )
   rows.push(React.createElement('div', { key: 'setcard', className: 'dshw_setCard' }, cells))
 
-  // —— Provider 分桶（Issue #21：包装官方的路由勾选计入官方计费） ——
+  // --- Provider buckets (Issue #21: wrapper routes can count as official billing) ---
   var knownProviders = snapshot && snapshot.providers && Array.isArray(snapshot.providers.known) ? snapshot.providers.known.filter(function (provider) { return !isPlanProviderId(provider) }) : []
   var officialProviders = snapshot && snapshot.providers && Array.isArray(snapshot.providers.official) ? snapshot.providers.official.filter(function (provider) { return !isPlanProviderId(provider) }) : []
   if (knownProviders.length > 0 || officialProviders.length > 0) {
-    rows.push(React.createElement('div', { key: 'pr-t', className: 'dshw_title', style: { marginTop: '8px' } }, 'Provider \u5206\u6876'))
-    rows.push(React.createElement('div', { key: 'pr-h', className: 'dshw_muted' }, '仅影响勾选后的后续调用；已记录的历史用量不重新计价'))
+    rows.push(React.createElement('div', { key: 'pr-t', className: 'dshw_title', style: { marginTop: '8px' } }, t('settings.providerBillingBuckets')))
+    rows.push(React.createElement('div', { key: 'pr-h', className: 'dshw_muted' }, t('settings.providerBucketsHint')))
     var providerRows = officialProviders.map(function (p) {
       return React.createElement('div', { key: 'op-' + p, className: 'dshw_setCell' },
         React.createElement('label', { className: 'dshw_check', style: { margin: 0 } },
           React.createElement('input', {
             type: 'checkbox', checked: true, disabled: usageLocked,
-            'aria-label': p + ' \u8ba1\u5165\u5b98\u65b9',
+            'aria-label': p + t('settings.countAsOfficialSuffix'),
             onChange: function () {
               fetch('/api/wallet/official-providers', {
                 method: 'POST',
@@ -895,13 +898,13 @@ function WalletSettingsSection(props) {
                 body: JSON.stringify({ providers: officialProviders.filter(function (x) { return x !== p }) })
               }).then(reloadAccounts).catch(function () { /* ignore */ })
             }
-          }), p + ' \u00b7 \u5b98\u65b9\u8ba1\u8d39'))
+          }), p + t('settings.officialBillingSuffix')))
     }).concat(knownProviders.map(function (p) {
       return React.createElement('div', { key: 'kp-' + p, className: 'dshw_setCell' },
         React.createElement('label', { className: 'dshw_check', style: { margin: 0 } },
           React.createElement('input', {
             type: 'checkbox', checked: false, disabled: usageLocked,
-            'aria-label': p + ' \u8ba1\u5165\u5b98\u65b9',
+            'aria-label': p + t('settings.countAsOfficialSuffix'),
             onChange: function () {
               fetch('/api/wallet/official-providers', {
                 method: 'POST',
@@ -909,22 +912,22 @@ function WalletSettingsSection(props) {
                 body: JSON.stringify({ providers: officialProviders.concat([p]) })
               }).then(reloadAccounts).catch(function () { /* ignore */ })
             }
-          }), p + ' \u00b7 \u4e09\u65b9\u8ba1\u8d39'))
+          }), p + t('settings.thirdPartyBillingSuffix')))
     }))
     rows.push(React.createElement('div', { key: 'pr-card', className: 'dshw_setCard', style: { display: 'block' } }, providerRows))
   }
 
-  // —— 第三方 API 自定义价格（Issue #36） ——
+  // --- Third-party API custom pricing (Issue #36) ---
   rows.push(React.createElement('div', { key: 'cp-head', className: 'dshw_accountHeader', style: { marginTop: '8px' } },
     React.createElement('span', null,
-      React.createElement('span', { className: 'dshw_title' }, '第三方 API 自定义价格'),
-      React.createElement('span', { className: 'dshw_muted', style: { display: 'block', marginTop: '2px', fontSize: '10px' } }, '每 100 万 Token；仅作本机估算，不代表第三方账单')),
+      React.createElement('span', { className: 'dshw_title' }, t('settings.thirdPartyApiCustomPrice')),
+      React.createElement('span', { className: 'dshw_muted', style: { display: 'block', marginTop: '2px', fontSize: '10px' } }, t('settings.customPriceNote'))),
     React.createElement('button', {
       type: 'button', className: 'dshw_btn',
       disabled: settingsProviderMode.kind !== 'third',
-      title: settingsProviderMode.kind === 'third' ? '填入当前会话选择的 Provider 与模型' : '请先切换到第三方模型',
+      title: settingsProviderMode.kind === 'third' ? t('settings.fillCurrentProviderModel') : t('settings.switchToThirdPartyFirst'),
       onClick: useCurrentRouteForPrice
-    }, '使用当前模型')))
+    }, t('settings.useCurrentModel'))))
   var providerOptions = Array.from(new Set(knownPriceRoutes.map(function (route) { return route && route.provider }).filter(Boolean)))
   var modelOptions = Array.from(new Set(knownPriceRoutes.filter(function (route) {
     return route && (!priceDraft.provider || route.provider === priceDraft.provider)
@@ -948,13 +951,13 @@ function WalletSettingsSection(props) {
   }
   var priceForm = React.createElement('div', { className: 'dshw_priceForm' },
     priceField('provider', 'Provider ID', 'text'),
-    priceField('model', '模型 ID', 'text'),
-    priceField('currency', '币种', 'text'),
-    priceField('input', '输入', 'number'),
-    priceField('cacheRead', '缓存读', 'number'),
-    priceField('cacheWrite', '缓存写', 'number'),
-    priceField('output', '输出', 'number'),
-    React.createElement('button', { type: 'button', className: 'dshw_btn dshw_btnPrimary', disabled: usageLocked, onClick: saveCustomPrice }, '保存'),
+    priceField('model', t('settings.modelId'), 'text'),
+    priceField('currency', t('settings.currency'), 'text'),
+    priceField('input', t('settings.priceInput'), 'number'),
+    priceField('cacheRead', t('settings.priceCacheRead'), 'number'),
+    priceField('cacheWrite', t('settings.priceCacheWrite'), 'number'),
+    priceField('output', t('settings.priceOutput'), 'number'),
+    React.createElement('button', { type: 'button', className: 'dshw_btn dshw_btnPrimary', disabled: usageLocked, onClick: saveCustomPrice }, t('settings.save')),
     React.createElement('datalist', { id: 'dshw-price-providers' }, providerOptions.map(function (provider) { return React.createElement('option', { key: provider, value: provider }) })),
     React.createElement('datalist', { id: 'dshw-price-models' }, modelOptions.map(function (model) { return React.createElement('option', { key: model, value: model }) })))
   function customWindowField(window, index, key, label, type) {
@@ -967,7 +970,7 @@ function WalletSettingsSection(props) {
         max: type === 'number' ? '1000000' : undefined,
         step: type === 'number' ? '0.000001' : undefined,
         value: window[key],
-        'aria-label': '分时段 ' + (index + 1) + ' ' + label,
+        'aria-label': t('settings.windowLabelSuffix') + (index + 1) + ' ' + label,
         onChange: function (event) { updateCustomPriceWindow(index, key, event.target.value) }
       }))
   }
@@ -975,56 +978,57 @@ function WalletSettingsSection(props) {
   var priceWindowRows = draftPriceWindows.map(function (window, index) {
     return React.createElement('div', { key: index, className: 'dshw_priceWindow' },
       React.createElement('div', { className: 'dshw_priceWindowHead' },
-        customWindowField(window, index, 'label', '时段名称', 'text'),
-        React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: usageLocked, 'aria-label': '删除分时段 ' + (index + 1), onClick: function () { removeCustomPriceWindow(index) } }, '删除时段')),
-      React.createElement('div', { className: 'dshw_priceDays', role: 'group', 'aria-label': '分时段 ' + (index + 1) + ' 适用星期' },
-        React.createElement('span', null, '星期'),
+        customWindowField(window, index, 'label', t('settings.windowLabel'), 'text'),
+        React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: usageLocked, 'aria-label': t('settings.deleteWindowAria') + (index + 1), onClick: function () { removeCustomPriceWindow(index) } }, t('settings.deleteWindow'))),
+      React.createElement('div', { className: 'dshw_priceDays', role: 'group', 'aria-label': t('settings.windowLabelSuffix') + (index + 1) + t('settings.appliesOnDaysSuffix') },
+        React.createElement('span', null, t('settings.weekdays')),
         CUSTOM_PRICE_WEEKDAYS.map(function (day) {
+          var dayLabel = t(day.labelKey)
           var selected = Array.isArray(window.days) && window.days.includes(day.value)
           return React.createElement('button', {
             key: day.value,
             type: 'button',
             className: 'dshw_priceDay',
-            'aria-label': '星期' + day.label,
+            'aria-label': t('settings.weekdays') + dayLabel,
             'aria-pressed': selected,
             onClick: function () { toggleCustomPriceDay(index, day.value) }
-          }, day.label)
+          }, dayLabel)
         })),
       React.createElement('div', { className: 'dshw_priceWindowRates' },
-        customWindowField(window, index, 'start', '开始', 'time'),
-        customWindowField(window, index, 'end', '结束', 'time'),
-        customWindowField(window, index, 'input', '输入', 'number'),
-        customWindowField(window, index, 'cacheRead', '缓存读', 'number'),
-        customWindowField(window, index, 'cacheWrite', '缓存写', 'number'),
-        customWindowField(window, index, 'output', '输出', 'number')))
+        customWindowField(window, index, 'start', t('settings.windowStart'), 'time'),
+        customWindowField(window, index, 'end', t('settings.windowEnd'), 'time'),
+        customWindowField(window, index, 'input', t('settings.priceInput'), 'number'),
+        customWindowField(window, index, 'cacheRead', t('settings.priceCacheRead'), 'number'),
+        customWindowField(window, index, 'cacheWrite', t('settings.priceCacheWrite'), 'number'),
+        customWindowField(window, index, 'output', t('settings.priceOutput'), 'number')))
   })
   var priceWindowEditor = React.createElement('div', { className: 'dshw_priceWindowEditor' },
     React.createElement('div', { className: 'dshw_priceWindowToolbar' },
       React.createElement('label', { className: 'dshw_priceField' },
-        React.createElement('span', null, '计价时区（IANA）'),
+        React.createElement('span', null, t('settings.pricingTimezoneIana')),
         React.createElement('input', {
           className: 'dshw_input', type: 'text', list: 'dshw-price-timezones', value: priceDraft.timezone,
-          'aria-label': '第三方计价时区', onChange: function (event) { updatePriceDraft('timezone', event.target.value) }
+          'aria-label': t('settings.thirdPartyPricingTimezone'), onChange: function (event) { updatePriceDraft('timezone', event.target.value) }
         }),
         React.createElement('datalist', { id: 'dshw-price-timezones' }, ['Asia/Shanghai', 'UTC', 'America/New_York', 'Europe/London'].map(function (timezone) {
           return React.createElement('option', { key: timezone, value: timezone }, timezone)
         }))),
-      React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: usageLocked || draftPriceWindows.length >= 24, onClick: addCustomPriceWindow }, '+ 添加分时段')),
+      React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: usageLocked || draftPriceWindows.length >= 24, onClick: addCustomPriceWindow }, t('settings.addWindow'))),
     priceWindowRows.length > 0
       ? React.createElement('div', { className: 'dshw_priceWindowList' }, priceWindowRows)
-      : React.createElement('div', { className: 'dshw_muted' }, '未添加分时段时始终使用上方基础价格。'),
-    React.createElement('div', { className: 'dshw_muted' }, '分时段可跨午夜；同一规则的时段不能重叠。'))
+      : React.createElement('div', { className: 'dshw_muted' }, t('settings.basePriceNote')),
+    React.createElement('div', { className: 'dshw_muted' }, t('settings.windowsMayCrossMidnight')))
   var priceRuleRows = priceRules.map(function (rule) {
     var windows = Array.isArray(rule.windows) ? rule.windows : []
     var active = rule.active && windows.length > 0 ? rule.active : null
     return React.createElement('div', { key: rule.provider + ':' + rule.model, className: 'dshw_priceRule' },
       React.createElement('span', null,
         React.createElement('strong', { title: rule.provider + ' · ' + rule.model }, rule.provider + ' · ' + rule.model),
-        React.createElement('span', null, rule.currency + '/1M · 基础：入 ' + rule.input + ' · 缓读 ' + rule.cacheRead + ' · 缓写 ' + rule.cacheWrite + ' · 出 ' + rule.output),
-        windows.length > 0 ? React.createElement('span', null, '分时 ' + windows.length + ' 段 · ' + (rule.timezone || 'Asia/Shanghai') + ' · 当前：' + (active ? active.label : '基础价')) : null),
+        React.createElement('span', null, rule.currency + t('settings.rateBaseIn') + rule.input + t('settings.rateCacheRead') + rule.cacheRead + t('settings.rateCacheWrite') + rule.cacheWrite + t('settings.rateOutput') + rule.output),
+        windows.length > 0 ? React.createElement('span', null, t('settings.timeOfDayPrefix') + windows.length + t('settings.windowsSuffix') + (rule.timezone || 'Asia/Shanghai') + t('settings.currentNow') + (customRateLabel(active, t))) : null),
       React.createElement('span', { className: 'dshw_settingsInline' },
-        React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: function () { editCustomPrice(rule) } }, '编辑'),
-        React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: usageLocked, onClick: function () { removeCustomPrice(rule) } }, '删除')))
+        React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: function () { editCustomPrice(rule) } }, t('settings.edit')),
+        React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: usageLocked, onClick: function () { removeCustomPrice(rule) } }, t('settings.delete'))))
   })
   rows.push(React.createElement('div', { key: 'cp-card', className: 'dshw_setCard wide', style: { display: 'block' } },
     priceForm,
@@ -1032,19 +1036,19 @@ function WalletSettingsSection(props) {
     priceNotice ? React.createElement('div', { className: 'dshw_muted', role: 'status', style: { padding: '0 12px 8px' } }, priceNotice) : null,
     priceRuleRows.length > 0
       ? React.createElement('div', { className: 'dshw_priceRules' }, priceRuleRows)
-      : React.createElement('div', { className: 'dshw_muted', style: { padding: '0 12px 11px' } }, '暂无规则；填写后即可看到第三方费用估算')))
+      : React.createElement('div', { className: 'dshw_muted', style: { padding: '0 12px 11px' } }, t('settings.noRulesHint'))))
 
-  rows.push(React.createElement(PlanUsagePanel, { key: 'plans', compact: false }))
-  rows.push(React.createElement(UsageHistoryPanel, { key: 'history', sessionId: null, alwaysOpen: true }))
+  rows.push(React.createElement(PlanUsagePanel, { key: 'plans', compact: false, t: t }))
+  rows.push(React.createElement(UsageHistoryPanel, { key: 'history', sessionId: null, alwaysOpen: true, t: t }))
 
-  // —— 账户管理 ——
+  // --- Account management ---
   rows.push(React.createElement('div', { key: 'acc-t', className: 'dshw_accountHeader' },
-    React.createElement('span', { className: 'dshw_title' }, '账户管理'),
-    React.createElement('span', { className: 'dshw_accountCount' }, list.length + ' 个账户')))
+    React.createElement('span', { className: 'dshw_title' }, t('settings.accountManagement')),
+    React.createElement('span', { className: 'dshw_accountCount' }, list.length + t('settings.accountCountSuffix'))))
   if (accountsError) {
     rows.push(React.createElement('div', { key: 'acc-e', className: 'dshw_muted' }, accountsError))
   } else if (list.length === 0) {
-    rows.push(React.createElement('div', { key: 'acc-none', className: 'dshw_muted' }, '\u6682\u65e0\u8d26\u6237\uff0c\u6dfb\u52a0\u540e\u5c06\u81ea\u52a8\u6210\u4e3a\u5f53\u524d\u8d26\u6237'))
+    rows.push(React.createElement('div', { key: 'acc-none', className: 'dshw_muted' }, t('settings.noAccountsHint')))
   } else {
     var AVATAR_HUES = [212, 262, 152, 22, 338, 180]
     var acctRows = list.map(function (acc, i) {
@@ -1057,30 +1061,30 @@ function WalletSettingsSection(props) {
         React.createElement('span', { className: 'dshw_acctInfo' },
           React.createElement('span', { className: 'dshw_acctName' },
             acc.name,
-            acc.active ? React.createElement('span', { className: 'dshw_acctBadge' }, 'LLM \u8ba1\u8d39\u4e2d') : null),
+            acc.active ? React.createElement('span', { className: 'dshw_acctBadge' }, t('settings.llmBillingActive')) : null),
           React.createElement('span', { className: 'dshw_acctKey' }, acc.maskedKey)),
         acc.active
-          ? React.createElement('span', { key: 'a', className: 'dshw_acctNow' }, '\u5f53\u524d')
+          ? React.createElement('span', { key: 'a', className: 'dshw_acctNow' }, t('settings.current'))
           : React.createElement('button', {
               key: 's', type: 'button', className: 'dshw_btn',
               style: { height: '22px', padding: '0 10px', fontSize: '11px' },
               disabled: switchingId !== null,
               onClick: function () { activateAccount(acc.id, acc.name) }
-            }, switchingId === acc.id ? '\u2026' : '\u5207\u6362'),
+            }, switchingId === acc.id ? '\u2026' : t('settings.switch')),
         React.createElement('button', {
           key: 'r', type: 'button', className: 'dshw_btn',
           style: { height: '24px', padding: '0 8px', fontSize: '10.5px' },
-          title: '\u5220\u9664\u8d26\u6237',
-          'aria-label': '删除账户 ' + acc.name,
+          title: t('settings.deleteAccount'),
+          'aria-label': t('settings.deleteAccountNamed') + acc.name,
           onClick: function () { removeAccount(acc.id, acc.name) }
-        }, '删除'))
+        }, t('settings.delete')))
     })
     rows.push(React.createElement('div', { key: 'acc-scroll', className: 'dshw_acctScroll' }, acctRows))
   }
   rows.push(React.createElement('div', { key: 'acc-add', className: 'dshw_accountAdd' },
     React.createElement('input', {
       className: 'dshw_input',
-      placeholder: '\u540d\u79f0', 'aria-label': '\u540d\u79f0',
+      placeholder: t('settings.name'), 'aria-label': t('settings.name'),
       value: nameDraft,
       onInput: function (event) { setNameDraft(event.target.value) },
       onChange: function (event) { setNameDraft(event.target.value) }
@@ -1095,7 +1099,7 @@ function WalletSettingsSection(props) {
     React.createElement('button', {
       type: 'button', className: 'dshw_btn dshw_btnPrimary', style: { height: '28px', padding: '0 14px' },
       onClick: addAccount
-    }, '添加')))
+    }, t('settings.add'))))
   if (accountNotice) {
     rows.push(React.createElement('div', { key: 'acc-n', className: 'dshw_muted' }, accountNotice))
   }
@@ -1126,12 +1130,25 @@ function WalletSettingsSection(props) {
       onClick: function () {
         fetch('/api/wallet/refresh', { method: 'POST' }).then(reloadAccounts).catch(function () { /* ignore */ })
       }
-    }, '刷新余额'),
+    }, t('settings.refreshBalance')),
     React.createElement('button', {
       type: 'button', className: 'dshw_btn dshw_btnPrimary',
       onClick: function () { if (close) close(); openOfficialRecharge() }
-    }, '↗ 去官方充值'))))
+    }, t('settings.goTopUp')))))
   return React.createElement('div', { ref: settingsSectionRef, className: 'dshw_settingsSection', style: { display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: 'var(--dsw-alias-label-primary,inherit)' } }, rows)
+}
+
+// Label for the custom-price rate that is currently in effect.
+//
+// The host reports the selection as `{kind, label}`. A `window` label is the
+// user's own text and must be shown verbatim; the `base` label is copy the host
+// hardcodes and therefore cannot follow the client language, so translate it
+// from the stable `kind` instead of echoing the host string.
+function customRateLabel(active, t) {
+  t = typeof t === 'function' ? t : walletT
+  if (!active) return t('settings.baseRate')
+  if (active.kind === 'base') return t('settings.baseRate')
+  return typeof active.label === 'string' && active.label !== '' ? active.label : t('settings.baseRate')
 }
 
 // Wall-clock hour (0-24, fractional) inside an IANA timezone, via Intl —
@@ -1154,7 +1171,10 @@ function wallHourIn(tz, offsetMinutes, date) {
 // boundary (wrapping past midnight), the reminder dedup id, and the
 // zero-text-friendly tooltip / screen-reader strings. windows come from
 // the wallet snapshot; anything malformed collapses to the neutral state.
-function peakClockState(policy, nowHour, nowMs) {
+function peakClockState(policy, nowHour, nowMs, t) {
+  // Callers inside the render tree pass the live locale seat; the bundled
+  // dictionary keeps direct (and older) callers working.
+  t = typeof t === 'function' ? t : walletT
   var windows = policy && Array.isArray(policy.windows) ? policy.windows.filter(function (w) {
     return w && Number.isFinite(w.startHour) && Number.isFinite(w.endHour) && w.endHour > w.startHour
   }) : []
@@ -1173,21 +1193,21 @@ function peakClockState(policy, nowHour, nowMs) {
       ? [weekendAnchor.getUTCFullYear(), String(weekendAnchor.getUTCMonth() + 1).padStart(2, '0'), String(weekendAnchor.getUTCDate()).padStart(2, '0')].join('-')
       : 'weekend'
     var weekendTzName = policy.timezone || 'Asia/Shanghai'
-    var weekendDayLabel = day === 6 ? '周六' : '周日'
+    var weekendDayLabel = day === 6 ? t('plan.saturday') : t('plan.sunday')
     return {
       configured: true, windows: [], weekendOffPeak: true, inPeak: false,
       nextHour: 9,
-      ariaText: '当前为' + weekendDayLabel + '低谷时段，全天按半价计费，周一 09:00 恢复标准价',
-      tip: '峰谷时钟 · 当前' + weekendDayLabel + '低谷 · ' + weekendDayLabel + '全天半价 · 周一 09:00 恢复工作日规则 · ' + weekendTzName,
-      periodName: '周末低谷', rateBadge: '半价',
-      countdownSummary: weekendDayLabel + '全天低谷',
-      windowSummary: weekendDayLabel + '全天低谷 · 工作日高峰 09:00–12:00 / 14:00–18:00',
+      ariaText: t('plan.currentlyPrefix') + weekendDayLabel + t('plan.weekendOffPeakNote'),
+      tip: t('plan.clockTipCurrent') + weekendDayLabel + t('plan.offPeakSuffix') + weekendDayLabel + t('plan.weekendHalfPriceNote') + weekendTzName,
+      periodName: t('plan.weekendOffPeak'), rateBadge: t('plan.halfPrice'),
+      countdownSummary: weekendDayLabel + t('plan.offPeakAllDay'),
+      windowSummary: weekendDayLabel + t('plan.weekendOffPeakWindow'),
       periodId: 'weekend-chain-' + weekendDateKey,
-      switchBody: '已进入周末低谷，全天按半价计费',
+      switchBody: t('plan.enteredWeekendOffPeak'),
     }
   }
   if (windows.length === 0) {
-    return { configured: false, windows: [], weekendOffPeak: false, ariaText: '峰谷计费时段未配置', tip: '峰谷时钟 · 计费时段未配置', periodId: null }
+    return { configured: false, windows: [], weekendOffPeak: false, ariaText: t('panel.peakWindowsUnconfigured'), tip: t('plan.clockWindowsUnconfigured'), periodId: null }
   }
   var inPeak = false
   var segStart = null
@@ -1217,17 +1237,17 @@ function peakClockState(policy, nowHour, nowMs) {
   var winText = windows.map(function (w) { return hh(w.startHour) + '–' + hh(w.endHour) }).join(' / ')
   var tzName = policy.timezone || 'Asia/Shanghai'
   var rate = typeof policy.offPeakRate === 'number' && policy.offPeakRate > 0 ? policy.offPeakRate : 0.5
-  var rateWord = rate === 0.5 ? '半价' : '×' + rate
+  var rateWord = rate === 0.5 ? t('plan.halfPrice') : '×' + rate
   var hoursLeft = (nextHour - nowHour + 24) % 24
   var msLeft = Math.round(hoursLeft * 3600000)
   var hLeft = Math.floor(msLeft / 3600000)
   var mLeft = Math.floor((msLeft % 3600000) / 60000)
-  var leftText = hLeft > 0 ? hLeft + ' 小时 ' + mLeft + ' 分' : mLeft + ' 分钟'
+  var leftText = hLeft > 0 ? hLeft + t('plan.hoursUnit') + mLeft + t('plan.minutesShortUnit') : mLeft + t('plan.minutesUnit')
   var leftShort = hLeft > 0 ? (hLeft + 'h' + (mLeft > 0 ? mLeft + 'm' : '')) : (mLeft + 'm')
-  var switchText = inPeak ? (hh(nextHour) + ' 后' + rateWord) : (hh(nextHour) + ' 恢复标准价')
-  var period = inPeak ? '高峰' : '低谷' + rateWord
-  var periodName = inPeak ? '高峰时段' : '低谷时段'
-  var rateBadge = inPeak ? '标准价' : (rate === 0.5 ? '半价' : '×' + rate)
+  var switchText = inPeak ? (hh(nextHour) + t('plan.inSuffix') + rateWord) : (hh(nextHour) + t('plan.resumeStandardRate'))
+  var period = inPeak ? t('plan.peak') : t('plan.offPeak') + rateWord
+  var periodName = inPeak ? t('plan.peakWindow') : t('plan.offPeakWindow')
+  var rateBadge = inPeak ? t('plan.standardRate') : (rate === 0.5 ? t('plan.halfPrice') : '×' + rate)
   var offsetMinutesForDay = policy && Number.isFinite(policy.offsetMinutes) ? policy.offsetMinutes : 480
   var localWallDate = Number.isFinite(nowMs) ? new Date(nowMs + offsetMinutesForDay * 60000) : null
   var localDay = localWallDate ? localWallDate.getUTCDay() : -1
@@ -1241,11 +1261,11 @@ function peakClockState(policy, nowHour, nowMs) {
   var fridayAfterLastPeak = !inPeak && localDay === 5 && nowHour >= windows[windows.length - 1].endHour && nextLocalMidnightMs >= weekendRuleSince
   var mondayBeforeFirstPeak = !inPeak && localDay === 1 && nowHour < windows[0].startHour && currentLocalMidnightMs >= weekendRuleSince
   var countdownSummary = fridayAfterLastPeak
-    ? '周末全天低谷'
-    : mondayBeforeFirstPeak ? ('剩 ' + leftShort + ' 进入高峰') : (hh(nextHour) + ' 切换 · 剩 ' + leftShort)
+    ? t('plan.weekendOffPeakAllDay')
+    : mondayBeforeFirstPeak ? (t('plan.leftPrefix') + leftShort + t('plan.enterPeakSuffix')) : (hh(nextHour) + t('plan.switchLeftMiddle') + leftShort)
   var windowSummary = fridayAfterLastPeak
-    ? '周五 18:00 起低谷 · 周六/周日全天低谷'
-    : '高峰 ' + winText
+    ? t('plan.weekendWindowNote')
+    : t('plan.peakPrefix') + winText
   // Dual timezone: billing is judged in the policy's base zone; a device
   // elsewhere also sees the local-clock span of the CURRENT segment.
   var localNote = ''
@@ -1257,16 +1277,16 @@ function peakClockState(policy, nowHour, nowMs) {
       var startInstant = nowMs - hoursAgo * 3600000
       var endInstant = startInstant + segLenH * 3600000
       var fmtLocal = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })
-      localNote = ' · 当地 ' + fmtLocal.format(startInstant) + '–' + fmtLocal.format(endInstant)
+      localNote = t('plan.localTimeMiddle') + fmtLocal.format(startInstant) + '–' + fmtLocal.format(endInstant)
     }
   } catch (e) { /* timezone introspection is best-effort */ }
   var ariaText = inPeak
-    ? '当前为高峰时段，' + tzName + ' ' + winText + '，按标准价计费'
-    : '当前为低谷时段，按平价的 ' + rate + ' 倍计费，' + tzName + ' 高峰 ' + winText
+    ? t('plan.currentlyPeakPrefix') + tzName + ' ' + winText + t('plan.billedAtStandardRateSuffix')
+    : t('plan.currentlyOffPeakPrefix') + rate + t('plan.timesRateMiddle') + tzName + t('plan.peakMiddle') + winText
   var tip = fridayAfterLastPeak
-    ? '峰谷时钟 · 当前低谷半价 · 下次高峰：周一 09:00 · ' + tzName + localNote
-    : '峰谷时钟 · 当前' + period + ' · ' + switchText + ' · 还有 ' + leftText
-      + ' · 高峰 ' + winText + '（' + tzName + '）' + localNote
+    ? t('plan.clockTipOffPeakHalfPrice') + tzName + localNote
+    : t('plan.clockTipCurrent') + period + ' · ' + switchText + t('plan.remainingMiddle') + leftText
+      + t('plan.peakMiddleWithTz') + winText + t('plan.peakTzWrapStart') + tzName + t('plan.peakTzWrapEnd') + localNote
   var periodId = (inPeak ? 'p' : 'o') + Math.round(segStart * 100)
   if ((fridayAfterLastPeak || mondayBeforeFirstPeak) && localWallDate) {
     var chainAnchorDays = mondayBeforeFirstPeak ? 3 : 0
@@ -1281,7 +1301,7 @@ function peakClockState(policy, nowHour, nowMs) {
     countdownSummary: countdownSummary, windowSummary: windowSummary,
     // Reminder dedup id: entering this period at this boundary fires once.
     periodId: periodId,
-    switchBody: inPeak ? '已进入高峰时段，按标准价计费' : '已进入低谷时段，按平价的 ' + rate + ' 倍计费',
+    switchBody: inPeak ? t('plan.enteredPeak') : t('plan.enteredOffPeakPrefix') + rate + t('plan.timesRateSuffix'),
   }
 }
 
@@ -1295,6 +1315,7 @@ function peakClockState(policy, nowHour, nowMs) {
 // In rail mode, it collapses to a 34px centered circular widget.
 function PeakRingFooter(props) {
   props = props || {}
+  var t = typeof props.t === 'function' ? props.t : walletT
   var wide = props.wide !== false
   var modelAware = props.modelAware === true
   var modelSelection = useCurrentModelSelection(props.sessionsService, props.modelDirectories, modelAware)
@@ -1479,7 +1500,7 @@ function PeakRingFooter(props) {
       if (compatibility.storage.getItem(PEAK_NOTIFY_KEY) !== 'true') return
     } catch (e) { return }
     var tzName = policy.timezone || 'Asia/Shanghai'
-    var state = peakClockState(policy, wallHourIn(tzName, policy.offsetMinutes, new Date(nowMs)), nowMs)
+    var state = peakClockState(policy, wallHourIn(tzName, policy.offsetMinutes, new Date(nowMs)), nowMs, t)
     if (!state.periodId) return
     var last = null
     try { last = compatibility.storage.getItem(PEAK_NOTIFY_LAST_KEY) } catch (e) { /* ignore */ }
@@ -1487,7 +1508,7 @@ function PeakRingFooter(props) {
     try { compatibility.storage.setItem(PEAK_NOTIFY_LAST_KEY, state.periodId) } catch (e) { /* ignore */ }
     if (last === null) return
     try {
-      compatibility.notify('DeepSeek Harness · 峰谷切换', {
+      compatibility.notify(t('panel.peakSwitchTitle'), {
         body: state.switchBody, tag: 'dsh-wallet-peak'
       })
     } catch (e) { /* ignore */ }
@@ -1575,7 +1596,7 @@ function PeakRingFooter(props) {
   if (modelAware && !peakClockAppliesFor(providerMode, policy)) return null
   var tzName = policy && policy.timezone ? policy.timezone : 'Asia/Shanghai'
   var offsetMinutes = policy && typeof policy.offsetMinutes === 'number' ? policy.offsetMinutes : 480
-  var state = peakClockState(policy, wallHourIn(tzName, offsetMinutes, new Date(nowMs)), nowMs)
+  var state = peakClockState(policy, wallHourIn(tzName, offsetMinutes, new Date(nowMs)), nowMs, t)
 
   var bal = snapshot && snapshot.balance ? snapshot.balance : {}
   var balCurrency = bal && bal.currency ? bal.currency : 'CNY'
@@ -1584,7 +1605,7 @@ function PeakRingFooter(props) {
   var official = session && session.official ? session.official : {}
   var costValue = (official.cost === null || official.cost === undefined) ? 0 : official.cost
   var costText = sessionCostText(costValue, balCurrency)
-  var costLabel = sessionCostLabel(balCurrency)
+  var costLabel = sessionCostLabel(balCurrency, t)
   var low = snapshot && snapshot.lowBalance === true
 
   // Announce a preference change to the other surfaces (settings page, a
@@ -1767,8 +1788,8 @@ function PeakRingFooter(props) {
     className: containerClasses.join(' '),
     'data-dshw-peak-background': peakBackground,
     style: Object.keys(cardStyle).length > 0 ? cardStyle : undefined,
-    title: state.tip + ' · 余额 ' + balText + ' · ' + costLabel + ' ' + costText + (isRail ? ' · 点击前往官方充值' : ' · 点击展开专属控制面板 / 按住拖拽'),
-    'aria-label': state.ariaText + '，余额 ' + balText + '，' + costLabel + ' ' + costText,
+    title: state.tip + t('panel.balanceMiddle') + balText + ' · ' + costLabel + ' ' + costText + (isRail ? t('panel.clickToTopUp') : t('panel.clickToExpandPanel')),
+    'aria-label': state.ariaText + t('panel.balanceComma') + balText + t('panel.balanceCommaTail') + costLabel + ' ' + costText,
     role: 'button',
     tabIndex: 0,
     onPointerDown: isRail ? undefined : handlePointerDown,
@@ -1791,12 +1812,12 @@ function PeakRingFooter(props) {
     isFreeFloating ? React.createElement('button', {
       type: 'button',
       className: 'dshw_footRingResetBtn',
-      title: '归位至侧边栏底部',
-      'aria-label': '归位至侧边栏底部',
+      title: t('panel.returnToSidebarBottom'),
+      'aria-label': t('panel.returnToSidebarBottom'),
       onClick: handleResetDock
-    }, '↩ 归位') : null,
+    }, t('settings.redockButton')) : null,
     React.createElement('div', { style: { flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
-      peakRingSVG(state.configured ? state.windows : null, wallHourIn(tzName, offsetMinutes, new Date(nowMs)), clockSize, state.ariaText, state.weekendOffPeak)
+      peakRingSVG(state.configured ? state.windows : null, wallHourIn(tzName, offsetMinutes, new Date(nowMs)), clockSize, state.ariaText, state.weekendOffPeak, t)
     ),
     !isRail ? React.createElement('div', { className: 'dshw_footRingLabel' },
       React.createElement('div', { className: 'dshw_footRingHeader' },
@@ -1806,14 +1827,14 @@ function PeakRingFooter(props) {
             color: state.configured ? (state.inPeak ? 'var(--dsw-alias-state-error-primary,#e5534b)' : 'var(--dsw-alias-state-success-primary,#1a7f37)') : 'inherit',
             fontSize: isFreeFloating ? undefined : (Math.round((isVertical ? 12 : 13.5) * peakScale) + 'px')
           }
-        }, state.configured ? state.periodName : '峰谷时钟')
+        }, state.configured ? state.periodName : t('settings.peakClock'))
       ),
       React.createElement('div', {
         className: 'dshw_footRingMoney' + (low ? ' dshw_low' : ''),
         style: isFreeFloating ? undefined : { fontSize: (Math.round((isVertical ? 11 : 12.5) * peakScale) + 'px') }
       },
         React.createElement('span', { className: 'dshw_footRingMoneyGroup' },
-          React.createElement('span', { className: 'dshw_muted' }, '余额 '),
+          React.createElement('span', { className: 'dshw_muted' }, t('panel.balanceLabel')),
           React.createElement('span', { className: 'dshw_footBalNum', style: { fontWeight: '600' } }, balText)),
         React.createElement('span', { className: 'dshw_balDot', style: { margin: '0 3px' } }, '·'),
         React.createElement('span', { className: 'dshw_footRingMoneyGroup' },
@@ -1824,17 +1845,17 @@ function PeakRingFooter(props) {
         React.createElement('span', {
           className: 'dshw_footRingCountdown',
           style: isFreeFloating ? undefined : { fontSize: (Math.round((isVertical ? 10 : 11) * peakScale) + 'px') }
-        }, state.configured ? state.countdownSummary : '计费时段未配置'),
+        }, state.configured ? state.countdownSummary : t('panel.windowsUnconfigured')),
         showRecharge ? React.createElement('button', {
           type: 'button',
           className: 'dshw_footRingBtnRechargeInline',
-          title: 'DeepSeek 开放平台 · 前往官方充值',
-          'aria-label': '前往官方充值',
+          title: t('panel.deepSeekOfficialTopUp'),
+          'aria-label': t('panel.goTopUpOfficial'),
           onClick: function (e) {
             if (e && typeof e.stopPropagation === 'function') e.stopPropagation()
             openOfficialRecharge()
           }
-        }, '充值') : null
+        }, t('chip.recharge')) : null
       )
     ) : null
   )
@@ -1844,17 +1865,17 @@ function PeakRingFooter(props) {
     className: 'dshw_peakPanel',
     style: { left: panelPos.left + 'px', top: panelPos.top + 'px' },
     role: 'dialog',
-    'aria-label': '峰谷时钟专属控制面板'
+    'aria-label': t('panel.peakClockDedicatedPanel')
   },
     React.createElement('div', { className: 'dshw_peakPanelHeader' },
       React.createElement('span', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
         React.createElement('span', { style: { color: 'var(--dsw-alias-brand-primary,#4aa3ff)' } }, '⚡'),
-        React.createElement('strong', null, '峰谷时钟控制面板')),
+        React.createElement('strong', null, t('panel.peakClockPanelTitle'))),
       React.createElement('button', {
         type: 'button',
         className: 'dshw_peakPanelClose',
-        title: '关闭面板 (Esc)',
-        'aria-label': '关闭面板',
+        title: t('panel.closePanelWithEsc'),
+        'aria-label': t('panel.closePanel'),
         onClick: function (e) { e.stopPropagation(); setPanelOpen(false) }
       }, '×')),
     React.createElement('div', { className: 'dshw_peakStatusCard' },
@@ -1865,78 +1886,78 @@ function PeakRingFooter(props) {
             fontSize: '13px',
             color: state.configured ? (state.inPeak ? 'var(--dsw-alias-state-error-primary,#e5534b)' : 'var(--dsw-alias-state-success-primary,#1a7f37)') : 'inherit'
           }
-        }, state.configured ? (state.periodName + (state.inPeak ? '（标准价）' : '（半价优惠）')) : '计费时段未配置'),
+        }, state.configured ? (state.periodName + (state.inPeak ? t('panel.standardRateParen') : t('panel.halfPriceParen'))) : t('panel.windowsUnconfigured')),
         React.createElement('span', { className: 'dshw_muted', style: { fontSize: '11px' } }, state.countdownSummary)),
       React.createElement('div', { className: 'dshw_muted', style: { fontSize: '11px', marginTop: '2px' } }, state.windowSummary),
       React.createElement('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '5px', paddingTop: '5px', borderTop: '1px solid var(--dsw-alias-border-l1,rgba(127,127,127,.12))' } },
-        React.createElement('span', { style: { fontSize: '11.5px' } }, '余额 ' + balText + ' · ' + costLabel + ' ' + costText),
+        React.createElement('span', { style: { fontSize: '11.5px' } }, t('panel.balanceLabel') + balText + ' · ' + costLabel + ' ' + costText),
         React.createElement('button', {
           type: 'button',
           className: 'dshw_btn dshw_btnPrimary',
           style: { height: '22px', fontSize: '11px', padding: '0 8px' },
           onClick: function () { openOfficialRecharge() }
-        }, '↗ 充值'))),
+        }, t('panel.rechargeShort')))),
     React.createElement('div', { className: 'dshw_divider' }),
     React.createElement('div', { className: 'dshw_peakRow' },
-      React.createElement('span', { className: 'dshw_muted' }, '时钟排版'),
+      React.createElement('span', { className: 'dshw_muted' }, t('panel.clockLayout')),
       React.createElement('select', {
         className: 'dshw_select',
         style: { height: '24px', fontSize: '11px' },
-        'aria-label': '控制面板时钟排版',
+        'aria-label': t('panel.clockLayoutAria'),
         value: orient,
         onChange: function (e) { updateOrient(e.target.value) }
       },
-        React.createElement('option', { value: 'horizontal' }, '横向排列'),
-        React.createElement('option', { value: 'vertical' }, '纵向排列'))),
+        React.createElement('option', { value: 'horizontal' }, t('settings.layoutHorizontal')),
+        React.createElement('option', { value: 'vertical' }, t('settings.layoutVertical')))),
     React.createElement('div', { className: 'dshw_peakRow' },
-      React.createElement('span', { className: 'dshw_muted' }, '时钟背景'),
+      React.createElement('span', { className: 'dshw_muted' }, t('settings.clockBackground')),
       React.createElement('select', {
         className: 'dshw_select',
         style: { height: '24px', fontSize: '11px' },
-        'aria-label': '控制面板时钟背景',
+        'aria-label': t('panel.clockBackgroundAria'),
         value: peakBackground,
         onChange: function (e) { updateBackground(e.target.value) }
       },
-        React.createElement('option', { value: 'transparent' }, '透明（悬停实色）'),
-        React.createElement('option', { value: 'solid' }, '实色'))),
+        React.createElement('option', { value: 'transparent' }, t('settings.backgroundTransparent')),
+        React.createElement('option', { value: 'solid' }, t('settings.backgroundSolid')))),
     React.createElement('div', { className: 'dshw_peakRow' },
-      React.createElement('span', { className: 'dshw_muted' }, '时钟大小 (' + Math.round(peakScale * 100) + '%)'),
+      React.createElement('span', { className: 'dshw_muted' }, t('panel.clockSize') + Math.round(peakScale * 100) + '%)'),
       React.createElement('span', { className: 'dshw_scaleControl' },
         React.createElement('input', {
           className: 'dshw_scaleInput', type: 'range', min: '100', max: '120', step: '5',
           value: String(Math.round(peakScale * 100)),
-          'aria-label': '控制面板时钟卡片比例',
+          'aria-label': t('panel.clockCardScaleAria'),
           onInput: function (e) { updateScale(Number.parseFloat(e.target.value) / 100) },
           onChange: function (e) { updateScale(Number.parseFloat(e.target.value) / 100) }
         }))),
     React.createElement('div', { className: 'dshw_peakRow' },
-      React.createElement('span', { className: 'dshw_muted' }, '时钟充值按钮'),
+      React.createElement('span', { className: 'dshw_muted' }, t('settings.clockTopUpButton')),
       React.createElement('label', { className: 'dshw_switch' },
         React.createElement('input', {
           type: 'checkbox', checked: showRecharge,
-          'aria-label': '控制面板时钟充值按钮',
+          'aria-label': t('panel.clockTopUpButtonAria'),
           onChange: function (e) { updateRecharge(e.target.checked) }
         }),
         React.createElement('span', { className: 'dshw_track', 'aria-hidden': 'true' }),
         React.createElement('span', { className: 'dshw_knob', 'aria-hidden': 'true' }))),
     React.createElement('div', { className: 'dshw_peakRow' },
-      React.createElement('span', { className: 'dshw_muted' }, '峰谷切换提醒'),
+      React.createElement('span', { className: 'dshw_muted' }, t('settings.peakSwitchAlert')),
       React.createElement('label', { className: 'dshw_switch' },
         React.createElement('input', {
           type: 'checkbox', checked: peakNotify,
-          'aria-label': '控制面板开启峰谷切换提醒',
+          'aria-label': t('panel.peakSwitchNotifyAria'),
           onChange: function (e) { updateNotify(e.target.checked) }
         }),
         React.createElement('span', { className: 'dshw_track', 'aria-hidden': 'true' }),
         React.createElement('span', { className: 'dshw_knob', 'aria-hidden': 'true' }))),
     React.createElement('div', { className: 'dshw_peakRow' },
-      React.createElement('span', { className: 'dshw_muted' }, '时钟位置'),
+      React.createElement('span', { className: 'dshw_muted' }, t('settings.clockPosition')),
       isFreeFloating ? React.createElement('button', {
         type: 'button',
         className: 'dshw_btn',
         style: { height: '24px', fontSize: '11px' },
         onClick: handleResetDock
-      }, '↩ 归位至侧边栏') : React.createElement('span', { className: 'dshw_muted', style: { fontSize: '11px' } }, '侧边栏底部（可拖拽）')),
+      }, t('panel.returnToSidebar')) : React.createElement('span', { className: 'dshw_muted', style: { fontSize: '11px' } }, t('panel.sidebarBottomDraggable'))),
     React.createElement('div', { style: { marginTop: '4px', textAlign: 'right', fontSize: '10px', color: 'var(--dsw-alias-label-secondary,var(--dsw-alias-label-tertiary,#667085))' } },
       'DeepSeek Harness Control Center v' + WALLET_VERSION)
   ) : null

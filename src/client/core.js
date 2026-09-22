@@ -17,8 +17,10 @@ var POLL_MS = 15000
 // Keep in lockstep with package.json; a test enforces the sync.
 var WALLET_VERSION = '0.3.13'
 var CUSTOM_PRICE_WEEKDAYS = [
-  { value: 1, label: '一' }, { value: 2, label: '二' }, { value: 3, label: '三' },
-  { value: 4, label: '四' }, { value: 5, label: '五' }, { value: 6, label: '六' }, { value: 0, label: '日' }
+  { value: 1, labelKey: 'weekday.mon' }, { value: 2, labelKey: 'weekday.tue' },
+  { value: 3, labelKey: 'weekday.wed' }, { value: 4, labelKey: 'weekday.thu' },
+  { value: 5, labelKey: 'weekday.fri' }, { value: 6, labelKey: 'weekday.sat' },
+  { value: 0, labelKey: 'weekday.sun' }
 ]
 var CONFIRM_KEY = 'dsh-wallet-recharge-confirmed'
 var CHIP_LAYOUT_KEY = 'dshw-chip-layout-v4'
@@ -138,7 +140,7 @@ function createCompatibilityAdapter(root) {
     var close = doc.createElement('button')
     close.type = 'button'
     close.className = 'dshw_noticeClose'
-    close.setAttribute('aria-label', '关闭提醒')
+    close.setAttribute('aria-label', walletT('common.dismissAlert'))
     close.textContent = '×'
     copy.appendChild(heading)
     copy.appendChild(body)
@@ -430,7 +432,7 @@ function openOfficialRecharge() {
   try { confirmed = compatibility.storage.getItem(CONFIRM_KEY) === '1' } catch (e) { /* ignore */ }
   if (!confirmed) {
     if (typeof window.confirm !== 'function') return false
-    if (!window.confirm('将打开 DeepSeek 官方充值页：\nplatform.deepseek.com\n\n确认继续？')) return false
+    if (!window.confirm(walletT('common.confirmOfficialRecharge'))) return false
     try { compatibility.storage.setItem(CONFIRM_KEY, '1') } catch (e) { /* ignore */ }
   }
   return compatibility.openExternal(url)

@@ -51,6 +51,17 @@ function readProjectFile(path) {
   return readFileSync(resolve(REPO_ROOT, path), 'utf8')
 }
 
+// The locale dictionaries are plain scripts (concatenated into the bundle), not
+// modules, so evaluate them in a bare context and read the declarations back.
+function loadDictionary(name) {
+  const sandbox = {}
+  runInNewContext(readProjectFile(`src/client/locales/${name}.js`), sandbox)
+  return sandbox[`wallet${name === 'zh' ? 'Zh' : 'En'}`]
+}
+
+const walletZh = loadDictionary('zh')
+const walletEn = loadDictionary('en')
+
 function localMarkdownTargets(markdown) {
   const targets = []
   const links = /!?\[[^\]]*\]\(([^)]+)\)/g
@@ -3486,8 +3497,8 @@ test('composer wallet follows the selected provider instead of showing DeepSeek 
   assert.match(source, /if \(providerMode\.kind !== 'deepseek'\) return null/, 'the peak clock disappears outside DeepSeek')
   assert.match(source, /peakClockAppliesFor\(providerMode, policy\)/, 'the peak clock follows the host-published peak model list')
   assert.match(source, /activeProviderMode\.kind === 'zai'/, 'the composer chip has a Z.ai-specific presentation')
-  assert.match(source, /'5h 剩' \+ planTokenRemaining/, 'the Z.ai chip shows remaining five-hour quota')
-  assert.match(source, /'MCP 剩' \+ planToolRemaining/, 'the Z.ai chip shows remaining monthly tool quota')
+  assert.match(source, /t\('chip\.planToken5h'\) \+ planTokenRemaining/, 'the Z.ai chip shows remaining five-hour quota')
+  assert.match(source, /t\('chip\.planTools'\) \+ planToolRemaining/, 'the Z.ai chip shows remaining monthly tool quota')
   assert.match(source, /showDeepSeek && !balanceOnly \? React\.createElement\('button'/, 'recharge is gated by the selected provider and the balance-only preference')
   assert.match(source, /modelDirectories\.directoryFor\(sessionId\)/, 'the chip reads the host model-selection service')
   assert.match(source, /lowNoticeRef\.current\.close\(\)/, 'leaving DeepSeek closes a stale low-balance notice')
@@ -3550,4 +3561,22 @@ test('maid-atelier compatibility prevents the skin from forcing the wallet butto
   assert.match(source, /:not\(\[data-ds-dark-theme\]\) \.dshw_footRing\{[^}]*--dsw-alias-label-primary:#f8f3e8;[^}]*background:linear-gradient\(145deg,rgba\(34,55,106,\.95\),rgba\(10,25,62,\.97\)\);[^}]*border-color:rgba\(225,191,124,\.62\)/, 'maid light mode keeps sidebar peak cards in the navy-and-gold workbar palette')
   assert.match(source, /\[data-ds-dark-theme\] \.dshw_footRing\{[^}]*--dsw-alias-label-primary:#f8f3e8;[^}]*background:rgba\(18,32,70,\.92\)/, 'maid dark peak cards keep their light-on-navy palette')
   assert.match(source, /data-dshw-chip-main/, 'themes get a stable selector instead of guessing aria roles')
+})
+
+test('locale dictionaries have identical key sets', () => {
+  assert.deepEqual(Object.keys(walletEn).sort(), Object.keys(walletZh).sort())
+})
+
+test('every dictionary value is a non-empty string', () => {
+  for (const [k, v] of Object.entries({ ...walletZh, ...walletEn })) {
+    assert.equal(typeof v, 'string', `${k} must be a string`)
+    assert.ok(v.length > 0, `${k} must not be empty`)
+  }
+})
+
+test('client sources contain no untranslated CJK outside the dictionaries', () => {
+  for (const f of ['core.js', 'views.js', 'settings.js', 'wallet.js']) {
+    assert.doesNotMatch(readFileSync(`src/client/${f}`, 'utf8'), /[\u4e00-\u9fff]/,
+      `${f} still has hardcoded Chinese`)
+  }
 })

@@ -26,7 +26,7 @@
 
 ## What it does
 
-The wallet UI is currently primarily Chinese and does not yet follow the host language setting (#32). DeepSeek balances come from the official API; cost accounting is a local estimate.
+The UI follows the host language setting, with built-in Simplified Chinese and English wording. DeepSeek balances come from the official API; cost accounting is a local estimate.
 
 ```
 余额 ¥5.89 · 本场 ¥0.72 · 官 18.8M | 三方 800K · ↗充

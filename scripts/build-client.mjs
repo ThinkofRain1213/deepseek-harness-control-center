@@ -2,7 +2,18 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { transformSync } from 'esbuild'
 
-export const clientSources = ['core.js', 'styles.js', 'views.js', 'settings.js', 'wallet.js']
+// Order matters: the dictionaries and the locale wiring are plain declarations
+// consumed by every later file, so they must be concatenated first.
+export const clientSources = [
+  'locales/zh.js',
+  'locales/en.js',
+  'i18n.js',
+  'core.js',
+  'styles.js',
+  'views.js',
+  'settings.js',
+  'wallet.js',
+]
 
 /**
  * The loader id the bundle must register itself under.
@@ -26,9 +37,20 @@ export function clientSource() {
 }
 
 export function buildClient() {
-  // Keep identifiers and expressions intact. Only whitespace and non-license
-  // comments are removed; the five source files remain reviewable in Git.
-  return transformSync(clientSource(), { loader: 'js', target: 'es2022', minifyWhitespace: true, legalComments: 'inline', charset: 'utf8' }).code
+  // Binding minification is required, not cosmetic: the bilingual dictionaries
+  // push the concatenated body past the 256 KiB review bound otherwise.
+  //
+  // What survives is what the tests and the host actually reach. esbuild
+  // shortens *binding* names (variables, parameters, function declarations) but
+  // never *property* names, so `exports.__testing.<name>`, `exports.apply`,
+  // `exports.inject`, `ctx.locale.register`, `__ModuleLoader__` and the
+  // 'module.semantic' dictionary keys all stay addressable. Internal bindings
+  // such as `WalletChip` or `walletZh` do get renamed — nothing outside the
+  // bundle refers to them by name.
+  //
+  // The Git sources remain fully readable; only this generated artifact is
+  // compacted. Tests that assert on structure read clientSource(), not this.
+  return transformSync(clientSource(), { loader: 'js', target: 'es2022', minifyWhitespace: true, minifySyntax: true, minifyIdentifiers: true, legalComments: 'inline', charset: 'utf8' }).code
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

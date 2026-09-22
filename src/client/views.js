@@ -55,10 +55,13 @@ function sessionCostText(costCNY, currency) {
   }
   return fmtCurrency(val, currency || 'CNY')
 }
-// 本约 = "本次为估算值"：美元账户的花费由 CNY 价折算，标签本身承担
-// 约算含义，数字前不再加 ≈ 符号；CNY 账户是精确值，用"本场"。
-function sessionCostLabel(currency) {
-  return currency === 'USD' ? '本约' : '本场'
+// USD spend is converted from the CNY table, so the label itself carries
+// the "estimate" meaning; no ≈ prefix. A CNY account is exact and uses "session".
+function sessionCostLabel(currency, t) {
+  // Callers inside the render tree pass the live locale seat; the bundled
+  // dictionary keeps direct (and older) callers working.
+  t = typeof t === 'function' ? t : walletT
+  return currency === 'USD' ? t('history.sessionCostLabelUsd') : t('chip.session')
 }
 
 // Ring clock: 24h circle, peak arcs from snapshot.pricingWindows (never
@@ -66,7 +69,10 @@ function sessionCostLabel(currency) {
 // Noon = 0h at 12 o'clock, clockwise. Optional size scales the 76-unit
 // viewBox down for tight hosts (sidebar foot row / rail circle); optional
 // ariaText overrides the fallback label with the full screen-reader state.
-function peakRingSVG(windows, nowHour, size, ariaText, allOffPeak) {
+function peakRingSVG(windows, nowHour, size, ariaText, allOffPeak, t) {
+  // Callers inside the render tree pass the live locale seat; the bundled
+  // dictionary keeps direct (and older) callers working.
+  t = typeof t === 'function' ? t : walletT
   var sizePx = typeof size === 'number' && size > 0 ? size : 76
   var R = 28
   var CX = 38
@@ -79,7 +85,7 @@ function peakRingSVG(windows, nowHour, size, ariaText, allOffPeak) {
       return React.createElement('svg', {
         width: sizePx, height: sizePx, viewBox: '0 0 76 76',
         role: 'img', className: 'dshw_peakRing',
-        'aria-label': ariaText || '当前为周末低谷时段，全天半价'
+        'aria-label': ariaText || t('panel.weekendOffPeakAllDay')
       },
         React.createElement('circle', {
           key: 'weekend-off', cx: CX, cy: CY, r: R, fill: 'none',
@@ -90,7 +96,7 @@ function peakRingSVG(windows, nowHour, size, ariaText, allOffPeak) {
     return React.createElement('svg', {
       width: sizePx, height: sizePx, viewBox: '0 0 76 76',
       role: 'img', className: 'dshw_peakRing',
-      'aria-label': ariaText || '峰谷计费时段未配置'
+      'aria-label': ariaText || t('panel.peakWindowsUnconfigured')
     },
       React.createElement('circle', { key: 'neutral', cx: CX, cy: CY, r: R, fill: 'none', className: 'dshw_ringNeutral', strokeWidth: 4 }))
   }
@@ -154,7 +160,7 @@ function peakRingSVG(windows, nowHour, size, ariaText, allOffPeak) {
   return React.createElement('svg', {
     width: sizePx, height: sizePx, viewBox: '0 0 76 76',
     role: 'img', className: 'dshw_peakRing',
-    'aria-label': ariaText || (inPeak ? '当前为高峰时段' : '当前为低谷时段（半价）')
+    'aria-label': ariaText || (inPeak ? t('panel.currentlyPeak') : t('panel.currentlyOffPeak'))
   }, children)
 }
 
@@ -193,17 +199,20 @@ function selectBalanceInfo(balance) {
   return balance.balances[0]
 }
 
-function balanceErrorText(error) {
+function balanceErrorText(error, t) {
+  // Callers inside the render tree pass the live locale seat; the bundled
+  // dictionary keeps direct (and older) callers working.
+  t = typeof t === 'function' ? t : walletT
   switch (error) {
-    case 'no-credentials': return '宿主凭证服务不可用'
-    case 'no-api-key': return '未配置 DeepSeek API Key'
-    case 'unauthorized': return 'API Key 无效或已过期'
-    case 'rate-limited': return '余额接口请求过于频繁'
-    case 'timeout': return '余额接口请求超时'
-    case 'invalid-response': return '余额接口返回无效数据'
-    case 'balance-unavailable': return '余额暂不可用'
-    case 'upstream-unavailable': return '余额接口暂时不可用'
-    default: return '余额暂不可用'
+    case 'no-credentials': return t('error.hostCredentialsUnavailable')
+    case 'no-api-key': return t('error.noDeepSeekKey')
+    case 'unauthorized': return t('error.invalidApiKey')
+    case 'rate-limited': return t('error.balanceRateLimited')
+    case 'timeout': return t('error.balanceTimeout')
+    case 'invalid-response': return t('error.balanceInvalidData')
+    case 'balance-unavailable': return t('error.balanceUnavailable')
+    case 'upstream-unavailable': return t('error.balanceApiUnavailable')
+    default: return t('error.balanceUnavailable')
   }
 }
 
@@ -313,6 +322,10 @@ function readNotifyConfig() {
  * waits until the current one closes.
  */
 function installCompletionNotifier(ctx) {
+  // Notifications run outside the renderer's slot seats, so resolve the
+  // translator from the locale service directly and fall back to the
+  // bundled dictionary on hosts that ship no locale face.
+  var t = ctx && ctx.locale && typeof ctx.locale.bind === 'function' ? ctx.locale.bind(WALLET_NS) : walletT
   if (typeof window === 'undefined' || !ctx.sessions || !ctx.sessions.list) return function () {}
   var stopped = false
   var leader = false
@@ -353,7 +366,7 @@ function installCompletionNotifier(ctx) {
     }
     var item = active.item
     var remaining = queue.length
-    var body = item.title + (remaining > 0 ? '\r\n另有 ' + remaining + ' 个对话等待提醒' : '\r\n点击打开该对话')
+    var body = item.title + (remaining > 0 ? t('notify.moreWaitingPrefix') + remaining + t('notify.moreWaitingSuffix') : t('notify.clickToOpen'))
     if (active.timer !== null) clearTimeout(active.timer)
     if (active.notification) {
       active.notification.onclose = null
@@ -362,7 +375,7 @@ function installCompletionNotifier(ctx) {
     }
     var notification
     try {
-      notification = compatibility.notify('DeepSeek Harness · 对话已完成', {
+      notification = compatibility.notify(t('notify.conversationCompleteTitle'), {
         body: body,
         tag: 'dsh-harness-completion',
         requireInteraction: config.timeout === 0
@@ -397,13 +410,13 @@ function installCompletionNotifier(ctx) {
 
   function enqueue(id, title) {
     if (active !== null && active.item.id === id) {
-      active.item = { id: id, title: title || '未命名对话' }
+      active.item = { id: id, title: title || t('notify.untitledConversation') }
       presentActive()
       return
     }
     if (queuedIds.has(id)) return
     queuedIds.add(id)
-    queue.push({ id: id, title: title || '未命名对话' })
+    queue.push({ id: id, title: title || t('notify.untitledConversation') })
     if (active !== null) presentActive()
     else showNext()
   }
@@ -688,12 +701,18 @@ function historyHeatLevel(day, maximum, metric) {
   return 1
 }
 
-function historyMoney(value) {
-  return value === null || value === undefined ? '未定价' : fmtCurrency(value, 'CNY')
+function historyMoney(value, t) {
+  // Callers inside the render tree pass the live locale seat; the bundled
+  // dictionary keeps direct (and older) callers working.
+  t = typeof t === 'function' ? t : walletT
+  return value === null || value === undefined ? t('history.unpriced') : fmtCurrency(value, 'CNY')
 }
 
 function UsageHistoryPanel(props) {
   props = props || {}
+  // `t` arrives through the renderer's locale seat when the slot registration
+  // declared `locale:`; the dictionary fallback keeps older hosts working.
+  var t = typeof props.t === 'function' ? props.t : walletT
   var sessionId = typeof props.sessionId === 'string' ? props.sessionId : null
   var alwaysOpen = props.alwaysOpen === true
   var [open, setOpen] = React.useState(alwaysOpen)
@@ -722,7 +741,7 @@ function UsageHistoryPanel(props) {
       setHistory(result.json)
       setSelectedDate(date || null)
     }).catch(function () {
-      if (requestId === historyRequestRef.current) setNotice('历史账本暂时不可用')
+      if (requestId === historyRequestRef.current) setNotice(t('history.ledgerUnavailable'))
     }).then(function () {
       if (requestId === historyRequestRef.current) setLoading(false)
     })
@@ -766,7 +785,7 @@ function UsageHistoryPanel(props) {
   }, [effectiveOpen, history, selectedDate])
   function clearHistory() {
     if (history && history.storage && history.storage.locked) return
-    if (!window.confirm('确认清除全部历史 Token 账本？当前会话余额与 token 数据不受影响，且不可恢复。')) return
+    if (!window.confirm(t('history.confirmClearLedger'))) return
     var requestId = ++historyRequestRef.current
     setLoading(true)
     fetch('/api/wallet/clear-history', { method: 'POST' }).then(function (resp) {
@@ -776,11 +795,11 @@ function UsageHistoryPanel(props) {
       if (!result.ok || !result.json || result.json.ok !== true) throw new Error('clear-failed')
       setHistory(null)
       setSelectedDate(null)
-      setNotice('历史账本已清除')
+      setNotice(t('history.ledgerCleared'))
       loadHistory(null)
     }).catch(function () {
       if (requestId === historyRequestRef.current) {
-        setNotice('清除历史账本失败')
+        setNotice(t('history.clearLedgerFailed'))
         setLoading(false)
       }
     })
@@ -788,26 +807,26 @@ function UsageHistoryPanel(props) {
 
   var historyStorage = history && history.storage ? history.storage : null
   var historyHint = historyStorage && historyStorage.locked
-    ? '本地账本无法读取，已锁定写入以保护原数据'
+    ? t('history.localLedgerUnreadable')
     : historyStorage && historyStorage.recovered
-      ? '已从本地备份恢复，最多保留 365 天'
-      : sessionId ? '只显示当前会话，按北京时间保留 365 天' : '仅保存在本机，按北京时间保留 365 天'
+      ? t('history.restoredFromBackup')
+      : sessionId ? t('history.sessionOnlyRetention') : t('history.localOnlyRetention')
   var header = React.createElement('div', { className: 'dshw_historyHeader' },
     React.createElement('div', { className: 'dshw_historyTitleCopy' },
-      React.createElement('strong', null, sessionId ? '本会话历史用量' : '历史用量账本'),
+      React.createElement('strong', null, sessionId ? t('history.sessionUsageTitle') : t('history.usageLedgerTitle')),
       React.createElement('span', null, historyHint)),
     alwaysOpen ? null : React.createElement('button', {
       type: 'button',
       className: 'dshw_btn',
       'aria-expanded': open,
-      'aria-label': open ? '收起历史用量' : '查看历史用量',
+      'aria-label': open ? t('history.collapseUsage') : t('history.viewUsage'),
       onClick: function () { setOpen(function (value) { return !value }) }
-    }, open ? '收起' : '查看'))
+    }, open ? t('history.collapse') : t('history.view')))
 
   var body = null
   if (effectiveOpen) {
     if (loading && history === null) {
-      body = React.createElement('div', { className: 'dshw_historyEmpty' }, '正在读取本地账本…')
+      body = React.createElement('div', { className: 'dshw_historyEmpty' }, t('history.readingLedger'))
     } else if (notice && history === null) {
       body = React.createElement('div', { className: 'dshw_historyEmpty' }, notice)
     } else if (history) {
@@ -826,8 +845,8 @@ function UsageHistoryPanel(props) {
           tabIndex: day.calls > 0 || isSelected || isToday ? 0 : -1,
           className: 'dshw_historyCell dshw_historyCell' + level + (isToday ? ' dshw_historyCellToday' : '') + (isSelected ? ' dshw_historyCellSelected' : ''),
           style: { gridColumn: String(Math.floor((index + firstWeekday) / 7) + 1), gridRow: String(weekday + 1) },
-          title: day.date + ' · ' + fmtTokens(day.totalTokens) + ' token · 官方 ' + (day.cost === null ? '未定价' : historyMoney(day.cost)) + (customCostsText(day.customCosts) ? ' · 三方估 ' + customCostsText(day.customCosts) : '') + ' · ' + day.calls + ' 次调用',
-          'aria-label': day.date + '，' + (metric === 'cost' ? ((day.cost === null ? '官方未定价' : historyMoney(day.cost)) + (customCostsText(day.customCosts) ? '，第三方估算 ' + customCostsText(day.customCosts) : '')) : fmtTokens(day.totalTokens) + ' token') + '，' + day.calls + ' 次调用',
+          title: day.date + ' · ' + fmtTokens(day.totalTokens) + t('history.tokenOfficialFragment') + (day.cost === null ? t('history.unpriced') : historyMoney(day.cost, t)) + (customCostsText(day.customCosts) ? t('history.thirdPartyEstimateFragment') + customCostsText(day.customCosts) : '') + ' · ' + day.calls + t('history.callsSuffix'),
+          'aria-label': day.date + t('history.dayAriaComma') + (metric === 'cost' ? ((day.cost === null ? t('history.officiallyUnpriced') : historyMoney(day.cost, t)) + (customCostsText(day.customCosts) ? t('history.thirdPartyEstimateInline') + customCostsText(day.customCosts) : '')) : fmtTokens(day.totalTokens) + ' token') + t('history.dayAriaComma') + day.calls + t('history.callsSuffix'),
           'aria-selected': isSelected,
           'aria-current': isToday ? 'date' : undefined,
           onClick: function () { loadHistory(day.date) }
@@ -840,43 +859,43 @@ function UsageHistoryPanel(props) {
       var selected = history.selected
       var breakdown = selected && Array.isArray(selected.breakdown) ? selected.breakdown : []
       var detailRows = breakdown.length === 0
-        ? (selected ? [React.createElement('div', { key: 'none', className: 'dshw_historyEmpty' }, '这一天没有可显示的明细')] : [])
+        ? (selected ? [React.createElement('div', { key: 'none', className: 'dshw_historyEmpty' }, t('history.noDetailForDay'))] : [])
         : breakdown.map(function (row) {
           return React.createElement('div', { key: row.provider + ':' + row.model, className: 'dshw_historyDetailRow' },
             React.createElement('span', { className: 'dshw_historyDetailName', title: row.provider + ' · ' + row.model }, row.model),
-            React.createElement('span', null, fmtTokens(row.totalTokens) + ' · ' + row.calls + ' 次' + (row.cost === null ? '' : ' · ' + historyMoney(row.cost)) + (row.customCost ? ' · 估 ' + fmtCurrency(row.customCost.cost, row.customCost.currency) : '')))
+            React.createElement('span', null, fmtTokens(row.totalTokens) + ' · ' + row.calls + t('history.callsInlineSuffix') + (row.cost === null ? '' : ' · ' + historyMoney(row.cost, t)) + (row.customCost ? t('history.estimateInlineFragment') + fmtCurrency(row.customCost.cost, row.customCost.currency) : '')))
         })
       body = React.createElement(React.Fragment, null,
         React.createElement('div', { className: 'dshw_historySummary' },
-          React.createElement('div', null, React.createElement('span', null, '累计'), React.createElement('strong', null, fmtTokens(total.totalTokens))),
-          React.createElement('div', null, React.createElement('span', null, '今天'), React.createElement('strong', null, fmtTokens(today.totalTokens))),
-          React.createElement('div', null, React.createElement('span', null, '本月'), React.createElement('strong', null, fmtTokens(month.totalTokens))),
-          React.createElement('div', null, React.createElement('span', null, '缓存命中'), React.createElement('strong', null, history.summary.cacheHitRate === null || history.summary.cacheHitRate === undefined ? '--' : history.summary.cacheHitRate + '%'))),
-        customCostsText(total.customCosts) ? React.createElement('div', { className: 'dshw_historyLegend' }, '第三方按当前自定义规则估算：' + customCostsText(total.customCosts)) : null,
-        React.createElement('div', { className: 'dshw_historyMetricToggle', role: 'group', 'aria-label': '历史热力图指标' },
+          React.createElement('div', null, React.createElement('span', null, t('history.total')), React.createElement('strong', null, fmtTokens(total.totalTokens))),
+          React.createElement('div', null, React.createElement('span', null, t('history.today')), React.createElement('strong', null, fmtTokens(today.totalTokens))),
+          React.createElement('div', null, React.createElement('span', null, t('history.thisMonth')), React.createElement('strong', null, fmtTokens(month.totalTokens))),
+          React.createElement('div', null, React.createElement('span', null, t('history.cacheHitRate')), React.createElement('strong', null, history.summary.cacheHitRate === null || history.summary.cacheHitRate === undefined ? '--' : history.summary.cacheHitRate + '%'))),
+        customCostsText(total.customCosts) ? React.createElement('div', { className: 'dshw_historyLegend' }, t('history.thirdPartyRulesPrefix') + customCostsText(total.customCosts)) : null,
+        React.createElement('div', { className: 'dshw_historyMetricToggle', role: 'group', 'aria-label': t('history.heatmapMetricLabel') },
            React.createElement('button', { type: 'button', className: metric === 'tokens' ? 'dshw_historyMetricActive' : '', 'aria-pressed': metric === 'tokens', onClick: function () { setMetric('tokens') } }, 'Token'),
-           React.createElement('button', { type: 'button', className: metric === 'cost' ? 'dshw_historyMetricActive' : '', 'aria-pressed': metric === 'cost', onClick: function () { setMetric('cost') } }, '费用')),
+           React.createElement('button', { type: 'button', className: metric === 'cost' ? 'dshw_historyMetricActive' : '', 'aria-pressed': metric === 'cost', onClick: function () { setMetric('cost') } }, t('history.metricCost'))),
          React.createElement('div', { className: 'dshw_historyLegend' },
-          React.createElement('span', null, metric === 'cost' ? '低' : '少'),
+          React.createElement('span', null, metric === 'cost' ? t('history.legendLowCost') : t('history.legendLowCount')),
           React.createElement('i', { className: 'dshw_historySwatch dshw_historyCell0' }),
           React.createElement('i', { className: 'dshw_historySwatch dshw_historyCell1' }),
           React.createElement('i', { className: 'dshw_historySwatch dshw_historyCell2' }),
           React.createElement('i', { className: 'dshw_historySwatch dshw_historyCell3' }),
           React.createElement('i', { className: 'dshw_historySwatch dshw_historyCell4' }),
-          React.createElement('span', null, metric === 'cost' ? '高' : '多')),
+          React.createElement('span', null, metric === 'cost' ? t('history.legendHighCost') : t('history.legendHighCount'))),
         React.createElement('div', { className: 'dshw_historyChart' },
         React.createElement('div', { className: 'dshw_historyWeekLabels', 'aria-hidden': 'true' },
-          React.createElement('span', null, '日'), React.createElement('span', null, '一'), React.createElement('span', null, '二'), React.createElement('span', null, '三'), React.createElement('span', null, '四'), React.createElement('span', null, '五'), React.createElement('span', null, '六')),
-        React.createElement('div', { ref: historyGridRef, className: 'dshw_historyHeatmap', role: 'grid', 'aria-label': '365 天 Token 用量热力图' }, cells)),
+          React.createElement('span', null, t('weekday.sun')), React.createElement('span', null, t('weekday.mon')), React.createElement('span', null, t('weekday.tue')), React.createElement('span', null, t('weekday.wed')), React.createElement('span', null, t('weekday.thu')), React.createElement('span', null, t('weekday.fri')), React.createElement('span', null, t('weekday.sat'))),
+        React.createElement('div', { ref: historyGridRef, className: 'dshw_historyHeatmap', role: 'grid', 'aria-label': t('history.heatmapAriaLabel') }, cells)),
         selected ? React.createElement('div', { className: 'dshw_historyDetail' },
           React.createElement('div', { className: 'dshw_historyDetailHeader' },
             React.createElement('strong', null, selected.date),
-            React.createElement('span', null, fmtTokens(selected.total.totalTokens) + ' token · ' + selected.total.calls + ' 次 · ' + historyMoney(selected.total.cost))),
+            React.createElement('span', null, fmtTokens(selected.total.totalTokens) + ' token · ' + selected.total.calls + t('history.callsInlineJoiner') + historyMoney(selected.total.cost, t))),
           detailRows) : null,
         React.createElement('div', { className: 'dshw_historyActions' },
-          React.createElement('span', { className: 'dshw_muted' }, notice || '费用按用量发生时的价格锁定；未知价格只显示 Token'),
-          React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: function () { loadHistory(selectedDate) } }, '刷新'),
-          React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: !!(historyStorage && historyStorage.locked), title: historyStorage && historyStorage.locked ? '账本存储已锁定，不能覆盖原文件' : '清除全部历史账本', style: { color: 'var(--dsw-alias-state-error-primary,#e5534b)' }, onClick: clearHistory }, '清除历史账本')))
+          React.createElement('span', { className: 'dshw_muted' }, notice || t('history.costLockedAtUsage')),
+          React.createElement('button', { type: 'button', className: 'dshw_btn', onClick: function () { loadHistory(selectedDate) } }, t('history.refresh')),
+          React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: !!(historyStorage && historyStorage.locked), title: historyStorage && historyStorage.locked ? t('history.ledgerStorageLocked') : t('history.clearAllLedger'), style: { color: 'var(--dsw-alias-state-error-primary,#e5534b)' }, onClick: clearHistory }, t('history.clearLedger'))))
     }
   }
   return React.createElement('div', { className: 'dshw_historyCard' }, header, body)
@@ -1019,32 +1038,64 @@ function planRemainingPercent(source, id) {
   return limit && Number.isFinite(limit.remainingPercentage) ? Math.round(limit.remainingPercentage) + '%' : '--'
 }
 
-function providerDisplayName(mode) {
-  if (!mode || !mode.provider) return '模型'
+/**
+ * Display name for one plan source.
+ *
+ * The host publishes a `name` alongside each source, but that string is built
+ * server-side and therefore cannot follow the client language. Resolve the
+ * label from the stable adapter id instead, and keep the host string only as a
+ * fallback for an adapter this build does not know about.
+ */
+function planSourceName(source, t) {
+  t = typeof t === 'function' ? t : walletT
+  var id = source && typeof source.id === 'string' ? source.id : null
+  if (id !== null) {
+    var key = 'plan.sourceName.' + id
+    var translated = t(key)
+    // An unresolved key echoes itself; fall through to the host string then.
+    if (translated !== key) return translated
+  }
+  return source && typeof source.name === 'string' ? source.name : ''
+}
+
+function providerDisplayName(mode, t) {
+  // Callers inside the render tree pass the live locale seat; the bundled
+  // dictionary keeps direct (and older) callers working.
+  t = typeof t === 'function' ? t : walletT
+  if (!mode || !mode.provider) return t('chip.model')
   if (mode.kind === 'zai') return 'Z.ai'
   return mode.provider.length > 18 ? mode.provider.slice(0, 16) + '…' : mode.provider
 }
 
-function planErrorText(code) {
+function planErrorText(code, t) {
+  // Callers inside the render tree pass the live locale seat; the bundled
+  // dictionary keeps direct (and older) callers working.
+  t = typeof t === 'function' ? t : walletT
   switch (code) {
-    case 'missing-credential': return '未配置对应 API Key'
-    case 'credentials-unavailable': return '宿主凭据服务暂不可用'
-    case 'invalid-credential': return '凭据格式不可用'
-    case 'unauthorized': return 'API Key 无效或套餐接口未授权'
-    case 'rate-limited': return '查询过于频繁，请稍后重试'
-    case 'timeout': return '套餐接口响应超时'
-    case 'invalid-response': return '套餐接口返回格式已变化'
-    case 'upstream-unavailable': return '套餐接口暂不可用'
-    default: return '套餐状态暂不可用'
+    case 'missing-credential': return t('plan.missingCredential')
+    case 'credentials-unavailable': return t('plan.hostCredentialsUnavailable')
+    case 'invalid-credential': return t('plan.invalidCredential')
+    case 'unauthorized': return t('plan.unauthorized')
+    case 'rate-limited': return t('plan.rateLimited')
+    case 'timeout': return t('plan.timeout')
+    case 'invalid-response': return t('plan.responseFormatChanged')
+    case 'upstream-unavailable': return t('plan.apiUnavailable')
+    default: return t('plan.statusUnavailable')
   }
 }
 
-function planLimitLabel(limit) {
-  return limit && limit.kind === 'tools' ? 'MCP 工具额度' : '模型 Token 额度'
+function planLimitLabel(limit, t) {
+  // Callers inside the render tree pass the live locale seat; the bundled
+  // dictionary keeps direct (and older) callers working.
+  t = typeof t === 'function' ? t : walletT
+  return limit && limit.kind === 'tools' ? t('plan.limitMcpTools') : t('plan.limitModelTokens')
 }
 
-function planWindowLabel(limit) {
-  return limit && limit.window === 'month' ? '1 个月窗口' : '5 小时窗口'
+function planWindowLabel(limit, t) {
+  // Callers inside the render tree pass the live locale seat; the bundled
+  // dictionary keeps direct (and older) callers working.
+  t = typeof t === 'function' ? t : walletT
+  return limit && limit.window === 'month' ? t('plan.windowMonth') : t('plan.window5h')
 }
 
 function planNumber(value) {
@@ -1060,6 +1111,9 @@ function planResetLabel(value) {
 
 function PlanUsagePanel(props) {
   props = props || {}
+  // `t` arrives through the renderer's locale seat when the slot registration
+  // declared `locale:`; the dictionary fallback keeps older hosts working.
+  var t = typeof props.t === 'function' ? props.t : walletT
   var compact = props.compact === true
   var provider = typeof props.provider === 'string' ? props.provider : null
   var [open, setOpen] = React.useState(!compact)
@@ -1069,13 +1123,13 @@ function PlanUsagePanel(props) {
 
   function load(force) {
     var requestId = ++requestRef.current
-    setNotice(force ? '正在刷新套餐额度…' : null)
+    setNotice(force ? t('plan.refreshingQuota') : null)
     var options = force ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' } : undefined
     fetch('/api/wallet/plans', options).then(function (resp) { return resp.json() }).then(function (json) {
       if (requestId !== requestRef.current) return
-      if (json && json.ok) { setData(json); setNotice(force ? '套餐额度已刷新' : null) }
-      else setNotice(json && json.error ? planErrorText(json.error) : '套餐查询失败')
-    }).catch(function () { if (requestId === requestRef.current) setNotice('套餐查询失败') })
+      if (json && json.ok) { setData(json); setNotice(force ? t('plan.quotaRefreshed') : null) }
+      else setNotice(json && json.error ? planErrorText(json.error, t) : t('plan.queryFailed'))
+    }).catch(function () { if (requestId === requestRef.current) setNotice(t('plan.queryFailed')) })
   }
 
   React.useEffect(function () {
@@ -1091,26 +1145,26 @@ function PlanUsagePanel(props) {
     : sources
   var available = shown.filter(function (source) { return source.available })
   var firstLimit = available.length > 0 && available[0].limits && available[0].limits.length > 0 ? available[0].limits[0] : null
-  var summary = data === null ? '正在读取套餐…'
+  var summary = data === null ? t('plan.reading')
     : data.configuredCount > 0
-      ? data.availableCount + '/' + data.configuredCount + ' 个套餐可用' + (firstLimit && Number.isFinite(firstLimit.remainingPercentage) ? ' · 剩余 ' + Math.round(firstLimit.remainingPercentage) + '%' : '')
-      : '未检测到已配置套餐'
+      ? data.availableCount + '/' + data.configuredCount + t('plan.plansAvailableSuffix') + (firstLimit && Number.isFinite(firstLimit.remainingPercentage) ? t('plan.remainingPrefix') + Math.round(firstLimit.remainingPercentage) + '%' : '')
+      : t('plan.noPlansDetected')
   var headerCopy = React.createElement('span', { className: 'dshw_planHeaderCopy' },
-    React.createElement('span', { className: 'dshw_planTitle' }, '套餐额度'),
+    React.createElement('span', { className: 'dshw_planTitle' }, t('plan.quotaTitle')),
     React.createElement('span', { className: 'dshw_planHint' }, notice || summary))
-  var refreshButton = React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: !!(data && data.refreshing), onClick: function () { load(true) } }, data && data.refreshing ? '刷新中…' : '刷新')
+  var refreshButton = React.createElement('button', { type: 'button', className: 'dshw_btn', disabled: !!(data && data.refreshing), onClick: function () { load(true) } }, data && data.refreshing ? t('plan.refreshing') : t('history.refresh'))
   var header = compact
     ? React.createElement('div', { className: 'dshw_planHeader' },
-        React.createElement('button', { type: 'button', className: 'dshw_planHeaderButton', style: { display: 'flex', flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: 0, border: 0, background: 'transparent', color: 'inherit', textAlign: 'left' }, 'aria-label': open ? '收起套餐额度' : '查看套餐额度', 'aria-expanded': open, onClick: function () { setOpen(!open) } }, headerCopy, React.createElement('span', { className: 'dshw_muted', 'aria-hidden': 'true' }, open ? '▴' : '▾')),
+        React.createElement('button', { type: 'button', className: 'dshw_planHeaderButton', style: { display: 'flex', flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: 0, border: 0, background: 'transparent', color: 'inherit', textAlign: 'left' }, 'aria-label': open ? t('plan.collapseQuota') : t('plan.viewQuota'), 'aria-expanded': open, onClick: function () { setOpen(!open) } }, headerCopy, React.createElement('span', { className: 'dshw_muted', 'aria-hidden': 'true' }, open ? '▴' : '▾')),
         refreshButton)
     : React.createElement('div', { className: 'dshw_planHeader' }, headerCopy, refreshButton)
   if (!open) return React.createElement('div', { className: 'dshw_planCard' }, header)
 
   var sourceRows = shown.map(function (source) {
-    var status = source.configured === false ? '未配置'
-      : source.refreshing ? '刷新中'
-        : source.available ? (source.stale || source.error ? '缓存' : '正常') : '异常'
-    var badgeClass = 'dshw_planBadge' + (status === '正常' ? ' ok' : status === '缓存' || status === '异常' ? ' warn' : '')
+    var status = source.configured === false ? t('plan.notConfigured')
+      : source.refreshing ? t('plan.refreshingStatus')
+        : source.available ? (source.stale || source.error ? t('plan.dataCached') : t('plan.dataOk')) : t('plan.dataError')
+    var badgeClass = 'dshw_planBadge' + (status === t('plan.dataOk') ? ' ok' : status === t('plan.dataCached') || status === t('plan.dataError') ? ' warn' : '')
     var limits = Array.isArray(source.limits) ? source.limits.map(function (limit) {
       var remainingPct = Number.isFinite(limit.remainingPercentage) ? Math.min(100, Math.max(0, limit.remainingPercentage)) : null
       var usedPct = Number.isFinite(limit.usedPercentage) ? Math.min(100, Math.max(0, limit.usedPercentage)) : null
@@ -1118,31 +1172,31 @@ function PlanUsagePanel(props) {
       var used = planNumber(limit.used)
       var total = planNumber(limit.total)
       var reset = planResetLabel(limit.resetAt)
-      var usageMeta = planWindowLabel(limit) + (usedPct === null ? '' : ' · 已用 ' + Math.round(usedPct) + '%')
+      var usageMeta = planWindowLabel(limit, t) + (usedPct === null ? '' : t('plan.usedSuffix') + Math.round(usedPct) + '%')
         + (used !== null && total !== null ? ' · ' + used + ' / ' + total : '')
       return React.createElement('div', { key: limit.id, className: 'dshw_planLimit' },
         React.createElement('div', { className: 'dshw_planLimitTop' },
-          React.createElement('span', null, planLimitLabel(limit)),
-          React.createElement('span', null, remainingPct === null ? '—' : '剩余 ' + Math.round(remainingPct) + '%')),
-        React.createElement('div', { className: 'dshw_planBar', role: 'progressbar', 'aria-label': source.name + ' ' + planLimitLabel(limit) + '剩余额度', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': remainingPct === null ? undefined : Math.round(remainingPct) },
+          React.createElement('span', null, planLimitLabel(limit, t)),
+          React.createElement('span', null, remainingPct === null ? '—' : t('plan.remainingSuffix') + Math.round(remainingPct) + '%')),
+        React.createElement('div', { className: 'dshw_planBar', role: 'progressbar', 'aria-label': planSourceName(source, t) + ' ' + planLimitLabel(limit, t) + t('plan.remainingQuota'), 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': remainingPct === null ? undefined : Math.round(remainingPct) },
           React.createElement('div', { className: fillClass, style: { width: (remainingPct === null ? 0 : remainingPct) + '%' } })),
         React.createElement('div', { className: 'dshw_planLimitMeta' },
           React.createElement('span', null, usageMeta),
-          React.createElement('span', null, reset ? '重置 ' + reset : '按官方额度统计')))
+          React.createElement('span', null, reset ? t('plan.resetsSuffix') + reset : t('plan.officialQuota'))))
     }) : []
-    var message = source.configured === false ? '在 DSH 模型设置中配置后自动读取'
-      : source.error ? planErrorText(source.error) + (source.available ? '，显示上次成功数据' : '')
-        : source.available ? null : '等待首次查询'
+    var message = source.configured === false ? t('plan.autoReadAfterModelSettings')
+      : source.error ? planErrorText(source.error, t) + (source.available ? t('plan.showingLastSuccess') : '')
+        : source.available ? null : t('plan.awaitingFirstQuery')
     return React.createElement('div', { key: source.id, className: 'dshw_planSource' },
       React.createElement('div', { className: 'dshw_planSourceHead' },
         React.createElement('span', null,
-          React.createElement('div', { className: 'dshw_planSourceName' }, source.name),
+          React.createElement('div', { className: 'dshw_planSourceName' }, planSourceName(source, t)),
           React.createElement('div', { className: 'dshw_planSourceMeta' }, source.sourceDomain + (source.level ? ' · ' + source.level : '') + (source.fetchedAt ? ' · ' + new Date(source.fetchedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''))),
         React.createElement('span', { className: badgeClass }, status)),
       message ? React.createElement('div', { className: 'dshw_muted', style: { marginTop: '6px' } }, message) : null,
       limits.length > 0 ? React.createElement('div', { className: 'dshw_planLimits' }, limits) : null)
   })
-  if (sourceRows.length === 0) sourceRows = [React.createElement('div', { key: 'none', className: 'dshw_muted' }, compact ? '暂无已配置套餐' : '尚未检测到支持的套餐凭据')]
+  if (sourceRows.length === 0) sourceRows = [React.createElement('div', { key: 'none', className: 'dshw_muted' }, compact ? t('plan.noConfiguredPlans') : t('plan.noSupportedPlanCredentials'))]
   return React.createElement('div', { className: 'dshw_planCard' }, header, React.createElement('div', { className: 'dshw_planSources' }, sourceRows))
 }
 
