@@ -220,7 +220,7 @@ test('client bundle registers the loader under the package name', () => {
 test('release READMEs use only approved status badges and every local Markdown target exists', () => {
   const documents = [
     resolve(REPO_ROOT, 'README.md'),
-    resolve(REPO_ROOT, 'docs/i18n/README.zh-CN.md'),
+    resolve(REPO_ROOT, 'docs/i18n/README.en.md'),
   ]
   for (const document of documents) {
     const markdown = readFileSync(document, 'utf8')
@@ -243,8 +243,8 @@ test('release READMEs use only approved status badges and every local Markdown t
   const rootReadme = readProjectFile('README.md')
   assert.match(
     rootReadme,
-    /\[简体中文\]\(https:\/\/github\.com\/ThinkofRain1213\/deepseek-harness-wallet-patched\/blob\/[^)]+\/docs\/i18n\/README\.zh-CN\.md\)/,
-    'the npm-rendered root README must use a repository-backed Chinese link',
+    /\[English\]\(https:\/\/github\.com\/ThinkofRain1213\/deepseek-harness-wallet-patched\/blob\/[^)]+\/docs\/i18n\/README\.en\.md\)/,
+    'the npm-rendered root README must use a repository-backed English link',
   )
 })
 
@@ -326,8 +326,8 @@ test('host integration kit is pinned, reviewable, and free of local-machine data
 })
 
 test('documentation distinguishes host-gated deletion from clearing wallet data', () => {
-  const english = readProjectFile('README.md')
-  const chinese = readProjectFile('docs/i18n/README.zh-CN.md')
+  const english = readProjectFile('docs/i18n/README.en.md')
+  const chinese = readProjectFile('README.md')
   assert.match(english, /permanent (?:session )?deletion[^\n]*(?:host|capabilit)/i)
   assert.match(english, /unsupported hosts?[^\n]*disabled/i)
   assert.match(chinese, /永久删除[^\n]*宿主/)
@@ -2199,8 +2199,8 @@ test('history UI guards stale requests, starts at recent dates, and limits keybo
 test('provider classification UI states that history is not retroactively repriced', () => {
   const source = readProjectFile('lib/client.js')
   assert.match(source, /仅影响勾选后的后续调用；已记录的历史用量不重新计价/)
-  assert.match(readProjectFile('README.md'), /Existing history is not retroactively reclassified/)
-  assert.match(readProjectFile('docs/i18n/README.zh-CN.md'), /既有历史不会追溯重分桶/)
+  assert.match(readProjectFile('docs/i18n/README.en.md'), /Existing history is not retroactively reclassified/)
+  assert.match(readProjectFile('README.md'), /既有历史不会追溯重分桶/)
 })
 test('UI preferences survive a host reload through the wallet store (Issue #31)', async () => {
   const previousHome = process.env.DSH_HOME

@@ -1,130 +1,130 @@
 # DeepSeek Harness Control Center
 
-[![npm version](https://img.shields.io/npm/v/deepseek-harness-wallet-patched?label=npm&color=5965d8)](https://www.npmjs.com/package/deepseek-harness-wallet-patched)
-[![GitHub release](https://img.shields.io/github/v/release/ThinkofRain1213/deepseek-harness-wallet-patched?label=release&color=5965d8)](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/releases)
-[![CI](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/actions/workflows/validate.yml/badge.svg)](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/actions/workflows/validate.yml)
+[![npm 版本](https://img.shields.io/npm/v/deepseek-harness-wallet-patched?label=npm&color=5965d8)](https://www.npmjs.com/package/deepseek-harness-wallet-patched)
+[![GitHub Release](https://img.shields.io/github/v/release/ThinkofRain1213/deepseek-harness-wallet-patched?label=release&color=5965d8)](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/releases)
+[![构建检查](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/actions/workflows/validate.yml/badge.svg)](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/actions/workflows/validate.yml)
 [![DeepSeek Harness](https://img.shields.io/badge/DeepSeek%20Harness-0.1.5--alpha.1-4aa3ff)](https://github.com/deepseek-ai/DeepSeek-Harness)
-[![License: MIT](https://img.shields.io/badge/license-MIT-3b7a57)](./LICENSE)
+[![MIT 许可证](https://img.shields.io/badge/license-MIT-3b7a57)](./LICENSE)
 
-**DeepSeek Harness monitoring, alerts, recharge, and session control center.**
+**DeepSeek Harness 监控、提醒、充值与会话控制中心。**
 
-`Balance ¥5.89 · Session ¥0.72 · Official 18.8M | Third-party 800K · ↗ Recharge`
+`余额 ¥5.89 · 本场 ¥0.72 · 官 18.8M | 三方 800K · ↗ 充值`
 
-[English](./README.md) · [简体中文](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/blob/main/docs/i18n/README.zh-CN.md) · [Install](#install) · [Compatibility](#browser-desktop-and-os-compatibility) · [Changelog](./CHANGELOG.md)
+[English](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/blob/main/docs/i18n/README.en.md) · [简体中文](./README.md) · [安装](#安装) · [兼容性](#浏览器桌面端与系统兼容) · [更新日志](./CHANGELOG.md)
 
-> A local-first companion that keeps account status, per-conversation usage, completion reminders, official recharge, flexible layout, and host-gated session controls beside the DSH composer.
+> 本地优先 DSH 助手：查看账户与本场用量、接收完成提醒、充值，并按宿主能力提供会话控制。
 
-> **Version:** v0.3.13.
+> **版本：** v0.3.13。
 
-> If DeepSeek Harness Control Center helps you, please consider leaving a ⭐ Star. Thank you!
+> 如果 DeepSeek Harness Control Center 帮到了你，请考虑点一个 ⭐ Star，谢谢！
 
-> **About this repository**
-> A personal patched fork of [feibi-mochi/deepseek-harness-control-center](https://github.com/feibi-mochi/deepseek-harness-control-center). Upstream has not been updated since 2026-09-09, so a working version is kept here.
-> - My time is limited: I do not guarantee timely attention to this repository, and it may stop being updated at any time
-> - Issues are welcome, though replies may be slow
-> - If upstream resumes maintenance, I will prefer to return to it
+> **关于本仓库**
+> 这是 [feibi-mochi/deepseek-harness-control-center](https://github.com/feibi-mochi/deepseek-harness-control-center) 的个人修补分支。上游自 2026-09-09 起未再更新，故在此维护一份可用版本。
+> - 精力有限，不保证及时关注这个仓库，且随时可能断更
+> - 欢迎提 issue，但回复可能很慢
+> - 上游若恢复维护，我会优先回归上游
 
-## What it does
+## 能做什么
 
-The wallet UI is currently primarily Chinese and does not yet follow the host language setting (#32). DeepSeek balances come from the official API; cost accounting is a local estimate.
+钱包界面目前主要为中文，尚未跟随宿主语言设置（#32）。余额来自官方接口；费用统计是本机估算。
 
 ```
 余额 ¥5.89 · 本场 ¥0.72 · 官 18.8M | 三方 800K · ↗充
 ```
 
-- **Official DeepSeek** — live balance (60s global refresh with fast boot retries), an estimated current-session cost (not an official bill) locked to the price active for each usage event, including the 2026-08-17 peak/off-peak rollout, and token breakdown.
-- **Vision model accounting** — `deepseek-v4-flash-vision-exp` is priced like V4 Flash; image tokens reported by the Harness are included with text tokens.
-- **v4 peak/off-peak ring clock** — a resident 24-hour sidebar footer widget for `v4-flash`, `v4-pro`, and `v4-flash-vision-exp`. Weekday peak windows are 09:00–12:00 and 14:00–18:00 Beijing time. After Friday 18:00 the card previews “weekend all-day off-peak”; Saturday and Sunday name the current all-day off-peak rule; Monday before 09:00 shows the time remaining to enter peak. Optional notifications treat Friday 18:00 through Monday 09:00 as one continuous off-peak period.
-- **Official pricing sync** — periodically checks the official DeepSeek pricing page and applies only a fully validated table. Network failures retain the last validated rule (or the built-in rule before the first successful sync); an unrecognized page structure is marked for review instead of silently changing billing.
-- **Z.ai Coding Plan quotas** — a generic official-plan adapter monitors configured Global and China plans without exposing credentials. It separates the 5-hour model-token window from monthly MCP-tool usage, leads with quota remaining from 100% down while keeping usage as secondary context, retains the last successful snapshot on failure, and never converts subscription quota into CNY balance.
-- **Provider-aware composer surfaces** — the chip and sidebar clock follow the session's selected provider/model. Z.ai—including transparent `vision-toolkit-` variants—replaces DeepSeek balance, recharge, and peak pricing with plan-window summaries; unrelated providers show only their own session tokens, and DeepSeek V4 restores the wallet and peak clock.
-- **Local usage ledger (up to 365 days / 20,000 events)** — Wallet settings keeps the heatmap visible, while compact wallet panels keep it collapsible. Stable request identities are deduplicated, official cost is locked at usage time, official and third-party data stay separate, and prompts or responses are never stored. Collection begins after upgrading to v0.3.2; older aggregate counters have no trustworthy dates and are not backfilled.
-- **Third-party total** — current-session tokens (input / cache read / output) remain available with zero configuration.
-- **Custom third-party pricing** — enter an exact Provider/model route, currency, and base per-million input/cache-read/cache-write/output rates, then optionally add multiple IANA-timezone, weekday, and cross-midnight pricing windows. Current-session and 365-day ledger costs are recalculated locally by occurrence time and clearly labeled as user-defined estimates, never as provider balances or invoices.
-- **Provider classification** — observed wrapper routes appear in the settings page; opted-in routes join the official token/cost bucket for subsequent calls and are priced with the official table. Existing history is not retroactively reclassified.
-- **Click the chip** to open the detail panel: correctly formatted per-currency balances, cost and token splits, a freely editable low-balance threshold for the active account and currency (two decimals, persisted per account; alerts never mix currencies), manual refresh, and a jump to the official recharge page (first click shows the domain for confirmation — anti-phishing).
-- **Move, dock, and scale** — drag the chip freely, preview nearby snap targets, use compact horizontal or vertical layouts, adjust its scale from the control panel, and show official or third-party data independently. The peak clock background can be explicitly set to transparent (solid on hover) or solid; there is no automatic mode. The choices are remembered locally.
-- **Composer-label controls and skin compatibility** — independently show/hide the composer label or reduce it to the primary remaining value (DeepSeek balance, Z.ai five-hour quota) without disabling reminders, settings, plan monitoring, or history. The standard chip also resists broad skin button rules and aligns with maid-atelier's 38px navy-and-gold composer toolbar.
-- **Floating window mode** — detach the detail panel into a draggable window with a remembered position, or minimize it directly to a freely movable dot; the dot turns red below the threshold.
-- **Completion reminders** — optionally notify when a conversation finishes, with persistent or timed modes, queueing and deduplication for simultaneous completions, cross-tab coordination, and an in-page fallback when system notifications are unavailable.
-- **Low-balance alert** — below the threshold the chip turns red with a breathing animation and fires one desktop notification; it resets automatically once the balance recovers.
-- **Theme-native UI** — uses DSH `--dsw-alias-*` variables with safe fallback colors, so light and dark themes both render correctly; the panel closes when you click outside and flips open-direction near screen edges.
-- **Clear current-session wallet data** — one button clears only the open conversation's token/cost records; it does not delete the conversation, and every other conversation is untouched. Historical ledger clearing is a separate action.
+- **官方 DeepSeek**——余额（60 秒全局刷新 + 启动快速重试）、本会话花费估算（不是官方账单；每次用量按发生时价格锁定，含 2026-08-17 峰谷价）、token 拆分。
+- **视觉模型计费**——`deepseek-v4-flash-vision-exp` 按 V4 Flash 价格计费；Harness 上报的图片 token 会和文本 token 一起计入。
+- **v4 峰谷计费时钟**——适用于 `v4-flash`、`v4-pro` 和 `v4-flash-vision-exp` 的 24 小时侧边栏环形钟。工作日高峰为北京时间 09:00–12:00、14:00–18:00；周五 18:00 后提示“周末全天低谷”，周六和周日分别显示当天全天低谷，周一 09:00 前显示剩余多久进入高峰。提醒逻辑将周五 18:00 至周一 09:00 视为一个连续低谷周期。
+- **官方价格同步**——定期检查 DeepSeek 官方价格页，只有完整校验通过的价格表才会应用。网络失败时沿用上一次已验证规则（首次同步前使用内置规则）；页面结构无法识别时标记为待复核，不会静默修改计费。
+- **Z.ai Coding Plan 套餐额度**——通过通用官方套餐适配器监控已配置的全球区和中国区套餐，不向浏览器暴露凭据；5 小时模型 Token 与月度 MCP 工具额度分开显示，以从 100% 向下消耗的剩余比例为主、已用比例为辅，查询失败保留最近成功数据，也不会把套餐额度换算成人民币余额。
+- **跟随当前 Provider**——输入框标签和侧边栏时钟跟随当前会话选择的 Provider/模型。选择 Z.ai（包括透明的 `vision-toolkit-` 变体）后用套餐窗口摘要替代 DeepSeek 余额、充值和峰谷时钟；其他第三方仅显示自身会话 Token，切回 DeepSeek V4 后恢复钱包与峰谷视图。
+- **本地用量账本（最多 365 天 / 20,000 条事件）**——钱包设置页常态显示热力图，紧凑钱包面板仍可折叠；稳定请求标识会去重，官方费用按发生时锁定，官方/第三方分开，且不保存提示词或回答正文。账本从升级到 v0.3.2 后开始收集，旧聚合数据没有可信日期，因此不会伪造回填。
+- **第三方合计**——本会话 token（输入 / 缓存读 / 输出）保持零配置可用。
+- **第三方自定义价格**——可按精确 Provider/模型填写币种及每百万 Token 的基础输入、缓存读、缓存写和输出价格，并可增加多个包含 IANA 时区、适用星期和跨午夜范围的分时段价格；本会话与 365 天账本会按用量发生时间在本机重新估算，并明确标注为自定义估算，不冒充第三方余额或账单。
+- **Provider 分桶**——设置页会列出已观察到的包装路由；勾选后的后续调用计入官方 token/花费桶并按官方价格表计费，既有历史不会追溯重分桶。
+- **点开面板**——按币种正确显示符号的余额拆分、花费与 token 明细、可自由填写当前账户与币种的低余额阈值（两位小数、按账户持久化；绝不跨币种比较或相加）、手动刷新、跳转官方充值页（首次点击显示域名确认，防钓鱼）。
+- **移动、吸附与缩放**——标签可自由拖动，靠近目标区域时预览吸附位置，按空间切换紧凑横排或竖排；还可在控制面板中调整比例，并分别显示官方或第三方数据。峰谷时钟背景可明确选择“透明（悬停实色）”或“实色”，不提供自动模式。设置均保存在本地。
+- **标签控制与皮肤兼容**——输入框标签可独立显示/隐藏，也可开启“仅显示余额”精简为首要剩余额度（DeepSeek 余额、Z.ai 五小时额度）；隐藏不会停止提醒、设置页、套餐监控或历史账本。标准样式会抵抗皮肤过宽的按钮规则，并与 maid-atelier 的 38px 深蓝金边工具栏对齐。
+- **悬浮窗口**——明细面板可切换为位置记忆的拖动窗口，也可直接最小化为自由移动的圆点；低于阈值时圆点变红。
+- **对话完成提醒**——可选择常驻或定时关闭；多个对话同时完成时自动排队、去重，并协调多个标签页；系统通知不可用时改用页面内提醒。
+- **低余额提醒**——低于阈值时标签变红呼吸 + 桌面通知一次，余额回升后自动复位。
+- **跟随主题**——使用 DSH `--dsw-alias-*` 主题变量并提供安全回退颜色，浅色/深色主题自动适配；面板点外部自动关闭，靠边自动反向展开。
+- **清除本会话钱包数据**——一键只清当前对话的 token/花费记录，不会删除对话，其他会话也不受影响；清除历史账本是独立操作。
 
-## Multi-account
+## 多账户
 
-- Open the wallet panel → **Account Management（账户管理）** to add accounts (name + API key), switch the active one, or remove them.
-- Adding the first account attempts to synchronize its key with the host credential store. It activates only if that write succeeds; a refused write retains the saved account without marking it active for billing.
-- Switching prompts a confirmation because it changes **LLM billing** for subsequent requests: the switch writes the account key into the credentials seam (`credentials.set('DEEPSEEK_API_KEY', ...)`), and since the llm-deepseek provider route resolves that reference per request, the very next LLM call is billed with the new account — no restart needed.
-- Account keys are encrypted at rest in `$DSH_HOME/storages/accounts.json`: Windows uses the current user's DPAPI; other platforms use an owner-only AES-GCM key file. An encrypted `.bak` recovers a missing, corrupt, or undecryptable primary file; if neither copy can be read, writes are locked instead of overwriting account data. The UI only shows masked keys.
-- Session usage estimates follow the active account's currency: USD-settled accounts show `本约 $x`, converted from the CNY price table using a fixed estimate of 7.25 CNY per USD (neither a live exchange rate nor the official USD tariff); CNY accounts show `本场 ¥x`. These are local estimates, not an official invoice.
-- If `DEEPSEEK_API_KEY` is supplied by the launching environment, switching is refused with a clear error (the credentials provider rejects shadowed writes) — unset it in your shell to enable switching.
+- 打开钱包面板 → **账户管理（Account Management）**，可添加账户（名称 + API Key）、切换当前账户或删除账户。
+- 添加首个账户时会尝试同步到宿主凭证库；只有同步成功才激活。若宿主拒绝写入，账户会保留，但不会显示为当前计费账户。
+- 切换会弹确认框，因为它会改变**后续 LLM 请求的计费**：切换把该账户 key 写入凭证库（`credentials.set('DEEPSEEK_API_KEY', ...)`），llm-deepseek 路由按请求解析该引用，因此**下一次 LLM 调用即用新账户计费，无需重启**。
+- 账户 key 在 `$DSH_HOME/storages/accounts.json` 中加密保存：Windows 使用当前用户 DPAPI，其他系统使用仅限所有者访问的 AES-GCM 密钥文件。加密 `.bak` 可恢复缺失、损坏或无法解密的主文件；主备都不可读时锁定写入，避免覆盖账户。界面只显示掩码。
+- 会话花费跟随当前账户货币：美元结算的账户显示「本约 $x」（按固定 7.25 CNY/USD 系数换算，并非实时汇率或官方美元单价）；人民币账户显示「本场 ¥x」。两者都是插件本地估算，不是官方账单。
+- 若启动环境已提供 `DEEPSEEK_API_KEY`，切换会被明确拒绝（凭证提供方拒绝遮蔽写入）——在 shell 中取消该环境变量即可启用切换。
 
 
-## Project overview
+## 项目介绍
 
-DeepSeek Harness Wallet is for users who want to check balances during a conversation, compare model costs, or manage multiple accounts. A chip beside the composer shows the selected model’s balance, remaining plan quota, or token usage; open it for details or detach it into a floating panel. Settings brings together encrypted accounts, low-balance and completion reminders, a usage heatmap, and fixed or time-of-use prices for third-party APIs. DeepSeek balances and Z.ai quotas come from their respective APIs. Costs are estimated locally from host-reported usage, helping you track consumption without replacing provider invoices.
+DeepSeek Harness Wallet 适合希望在对话时查看余额、比较模型开销，或管理多个账户的用户。输入框旁的标签显示当前模型对应的余额、套餐剩余额度或 Token 用量，点开可查看明细，也可拖成浮窗。设置页集中提供加密多账户、低余额与完成提醒、历史用量热力图，以及第三方 API 的固定或分时价格。DeepSeek 余额和 Z.ai 配额来自各自接口，费用则按宿主上报的用量在本机估算；它适合跟踪消耗，不代替供应商账单。
 
-## Install
+## 安装
 
-From npm:
+从 npm 安装：
 
 ```sh
 dsh plugin --profile web add deepseek-harness-wallet-patched
 ```
 
-or from GitHub `main`:
+或直接安装 GitHub `main`：
 
 ```sh
 dsh plugin --profile web add github:ThinkofRain1213/deepseek-harness-wallet-patched
 ```
 
-Restart `dsh web`, then hard-refresh the page.
+重启 `dsh web`，然后强制刷新页面。
 
-## Quick use
+## 快速使用
 
-1. Click the wallet or peak/off-peak card to open its control panel; open the Harness settings card for health and compatibility checks.
-2. The peak card supports horizontal/vertical layout and 100%–120% scaling. The wallet chip uses a separate scale: 100%–105% in the composer and up to 125% when docked or floating.
-3. Turn the official recharge button off when you need a smaller card; official and third-party rows can also be shown independently.
-4. Drag the card to any open area. If it is hard to find after a layout change, use **Reset/Dock（归位/停靠）** in the panel to return it to the sidebar.
-5. The card follows the host light/dark theme. A hard refresh after upgrading makes sure the new client bundle is loaded.
+1. 点击钱包卡片或峰谷卡片，打开控制面板；也可以打开 Harness 设置中的健康检查卡片。
+2. 峰谷卡片支持横排/竖排和 100%–120% 缩放；钱包标签使用独立比例，输入框内为 100%–105%，停靠或浮动时最高 125%。
+3. 如果需要缩小卡片，可以关闭官方充值按钮；官方和第三方数据也可以分别显示或隐藏。
+4. 将卡片拖到任意空白位置。布局切换后如果不容易找到，可在面板中点击“归位/停靠”，恢复到侧边栏。
+5. 卡片会跟随宿主的浅色/深色主题。升级后请强制刷新，确保加载新版前端。
 
-### Update
+### 更新
 
 ```sh
 dsh plugin --profile web update deepseek-harness-wallet-patched
 ```
 
-### Remove
+### 卸载
 
 ```sh
 dsh plugin --profile web remove deepseek-harness-wallet-patched
 ```
 
-## Browser, desktop, and OS compatibility
+## 浏览器、桌面端与系统兼容
 
-See [0.3.13 compatibility evidence](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/blob/main/docs/compatibility-0.3.13.md). The official 0.1.5-alpha.1 host does not provide this plugin’s permanent-delete capability, so that switch stays disabled; the old source integration patch is not a drop-in update.
+本轮范围见 [0.3.13 兼容验证](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/blob/main/docs/compatibility-0.3.13.md)。官方 0.1.5-alpha.1 未提供本插件要求的永久删除能力，相关开关保持禁用；旧源码的会话删除补丁不能直接用于新版。
 
-The client contains no operating-system-specific feature branch; it checks the Web and host capabilities it needs. That makes the same code portable, but **portable code is not the same as real-device verification**:
+客户端没有按操作系统写死的功能分支，而是检查所需的 Web 与宿主能力；这让同一套代码容易迁移，但必须区分“具备兼容条件”和“已经在真机逐项验证”：
 
-| Verification level | Coverage |
+| 验证层级 | 范围 |
 | --- | --- |
-| Current local verification | Windows + Node 24.18.1 + DSH 0.1.5-alpha.1; keyless Web UI and isolated lifecycle checks. No live paid-API acceptance |
-| Exact host coverage | 0.1.5-alpha.1 checked for this update; earlier 0.1.2-alpha.3/alpha.4/alpha.5/rc.1 evidence belongs to previous wallet releases. Other releases remain unverified |
-| Automated compatibility checks | Browser notification failure, in-page fallback, cross-tab fallback, storage fallback, CSS-scale fallback, and synchronous/asynchronous desktop adapters |
-| Capability-compatible targets | Current Chrome, Edge, and Firefox on Windows/macOS/Linux; Safari on macOS; Electron/Tauri-style DSH wrappers that provide the requirements below |
+| 本轮本地验证 | Windows + Node 24.18.1 + DSH 0.1.5-alpha.1；无真实密钥的 Web 界面与隔离生命周期检查，未验证真实付费 API |
+| 精确宿主覆盖 | 本次检查 0.1.5-alpha.1；此前 0.1.2-alpha.3/alpha.4/alpha.5/rc.1 的证据属于历史钱包版本，其他版本保持未验证 |
+| 已完成自动兼容测试 | 系统通知失败、页面内提醒、跨标签页回退、本地存储回退、CSS 比例回退，以及同步/异步桌面端适配器 |
+| 按能力设计的兼容目标 | Windows/macOS/Linux 上当前版 Chrome、Edge、Firefox，macOS Safari，以及满足下列条件的 Electron/Tauri 类 DSH 桌面端 |
 
-The last row describes intended compatibility, not a claim that every browser/OS/wrapper combination was physically tested. If system notifications are unavailable or denied, reminders fall back to an in-page notice; if Web Locks are unavailable, a renewable local-storage lease coordinates reminder ownership across tabs. CSS `zoom` also has a transform fallback. Core wallet data, controls, dragging, docking, scaling, and visibility settings use these shared paths rather than an OS name check.
+最后一行表示代码具备兼容路径，并不等于每一种浏览器、系统和桌面壳组合都已经做过真机验证。系统通知不可用或被拒绝时会改用页面内提醒；不支持 Web Locks 时以可续期的本地存储租约协调多个标签页；CSS `zoom` 不可用时改用 `transform`。余额与 token、控制面板、拖动吸附、比例缩放和显示开关都走这些共用路径，而不是依赖某个系统名称。
 
-Electron, Tauri, and other DSH desktop wrappers can run the wallet when they expose the normal DSH Web plugin loader, slots, wallet HTTP endpoints, DOM, and `fetch`. A wrapper that restricts native notifications, persistent storage, or external links may define one optional adapter before the plugin bundle loads:
+Electron、Tauri 等 DSH 桌面端只要完整提供 DSH Web 插件加载器、插槽、钱包 HTTP 接口、DOM 和 `fetch`，即可运行本插件。如果桌面壳限制系统通知、持久存储或外部链接，可在钱包脚本加载前提供一个全部字段均可选的统一适配器：
 
 ```js
 window.__DSH_WALLET_ADAPTER__ = {
-  // All fields are optional. Keep storage synchronous and localStorage-compatible.
+  // storage 必须同步并兼容 localStorage；不需要的字段可以不写。
   storage: { getItem, setItem, removeItem },
   notify({ title, body, tag, requireInteraction, onClick, onClose }) {
-    // May return a notification-like handle, Promise, or nothing.
-    // Call the supplied onClick/onClose callbacks for native events.
+    // 可返回类通知句柄、Promise，或由原生端自行处理而不返回值。
+    // 原生通知被点击或关闭时，调用 onClick / onClose。
   },
   requestNotificationPermission() { return 'granted' },
   openExternal(url) { return true },
@@ -132,50 +132,50 @@ window.__DSH_WALLET_ADAPTER__ = {
 }
 ```
 
-`notify()` may return a notification-like handle, a Promise for one, or nothing for fire-and-forget native APIs. The payload also includes `onClick` / `onClose` callbacks so Electron IPC, Tauri notification actions, and other desktop bridges can return events without copying wallet logic; returning `false` asks the wallet to use its browser fallback. `requestNotificationPermission()` is optional for hosts such as Tauri and macOS that require a native permission request. Returning `false` from `openExternal()` likewise asks the wallet to try the browser fallback. Declare `permanentDelete` only when the host actually implements the wallet preference and session-menu action; compatible hosts advertise it automatically, while unsupported hosts show a disabled control instead of a switch that has no effect. Platform adaptations are intentionally confined to `createCompatibilityAdapter()` in `src/client/core.js`, so an Agent can add a new wrapper without editing wallet accounting or UI logic.
+`notify()` 可以返回类通知句柄、返回其 Promise，也可以使用无需返回值的原生 API。载荷中的 `onClick` / `onClose` 让 Electron IPC、Tauri 通知等原生桥把点击和关闭事件传回钱包；返回 `false` 时钱包会改用浏览器回退。部分 Tauri 或 macOS 宿主可通过 `requestNotificationPermission()` 请求原生通知权限。`openExternal()` 返回 `false` 时钱包会继续尝试浏览器打开方式。只有宿主真正实现钱包开关和会话菜单动作时才能声明 `permanentDelete`；兼容宿主会自动声明，不兼容宿主显示禁用状态。所有平台差异集中在 `src/client/core.js` 的 `createCompatibilityAdapter()`；以后适配新的桌面壳时，不需要修改钱包计费与界面逻辑。
 
-For buildable DSH hosts, the repository includes a versioned [Agent-assisted permanent-delete integration kit](./integrations/dsh-session-delete/README.md) with a Chinese guide, complete Agent prompt, read-only preflight, compatibility manifest, upstream notice, and an exact-baseline reference patch. The patch is not a universal installer: a different DSH commit must be inspected and adapted by semantics, and closed or non-rebuildable desktop applications remain unsupported.
+对于可以重新构建的 DSH 宿主，仓库附带一套版本化的 [Agent 永久删除适配资料](./integrations/dsh-session-delete/README.zh-CN.md)：包含中英文说明、完整 Agent 提示词、只读预检、兼容清单、上游声明和固定基线参考补丁。它不是通用安装器；DSH 提交不同就必须阅读现有源码并按语义迁移，封闭源码或不能重新构建的桌面端不在支持范围内。
 
-## Optional host integration
+## 可选宿主集成
 
-Permanent session deletion is implemented by the host, not the wallet. Its switch remains disabled on the official 0.1.5-alpha.1 host. For a source integration, see the [guide](./integrations/dsh-session-delete/README.md) and [Agent adaptation prompt](./integrations/dsh-session-delete/AGENT_PROMPT.md); the old reference patch is not a drop-in update for newer hosts.
+永久删除会话不是钱包自身实现的功能。只有宿主提供对应能力时才开放开关；不支持的宿主保持禁用，官方 0.1.5-alpha.1 也不例外。需要自行适配时，参考[中文说明](./integrations/dsh-session-delete/README.zh-CN.md)和[Agent 适配提示词](./integrations/dsh-session-delete/AGENT_PROMPT.md)；旧参考补丁不能直接用于新版。
 
-## Data & trust
+## 数据与安全
 
-Client development now uses five readable files under `src/client/` and a committed `lib/client.js` artifact; run `npm ci`, `npm run build:client`, and `npm run check:client` after source edits. Installation runs no build scripts. Exact-version smoke checks are documented in [0.3.10 compatibility evidence](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/blob/main/docs/compatibility-0.3.10.md).
+客户端开发源码位于 `src/client/` 的五个文件，`lib/client.js` 是已提交的加载产物。修改后运行 `npm ci`、`npm run build:client` 和 `npm run check:client`；安装时无需构建。各版本的隔离验证范围见 [0.3.10 兼容证据](https://github.com/ThinkofRain1213/deepseek-harness-wallet-patched/blob/main/docs/compatibility-0.3.10.md)。
 
-| Item | Behavior |
+| 项目 | 行为 |
 | --- | --- |
-| Token accounting | Listens to the `llm/stream` event and buckets per session and provider: `deepseek-official` plus explicitly opted-in wrapper routes use the official bucket; other providers stay third-party; each usage event also locks its contemporaneous official price, so multiple sessions and pricing windows never mix. |
-| Balance | The wallet plugin itself sends the active key directly only to the official `/user/balance` endpoint. When multi-account switching is enabled, the selected key is also written into the DSH credentials seam; DSH may then use it for subsequent model requests. |
-| Accounts | Keys live encrypted in `$DSH_HOME/storages/accounts.json`, with an encrypted `accounts.json.bak` fallback for a missing, corrupt, or undecryptable primary. Windows uses current-user DPAPI; other platforms use an owner-only AES-GCM key file, so move `accounts.json`, `.bak`, and `.key` together. If neither copy can be read, account writes fail closed. |
-| Usage ledger | Local events and custom third-party price rules live in `$DSH_HOME/storages/wallet.json` with a `wallet.json.bak` recovery copy. Missing/corrupt primaries recover automatically; if neither copy is readable, wallet writes fail closed. Up to 365 days and 20,000 events of session/provider/model/token metadata and official locked cost are kept—never prompts, tool arguments, response bodies, or API keys. Third-party estimates are recalculated from the current custom rule and each retained event's occurrence time; aggregate usage without a retained timestamp safely falls back to the base rate. |
-| Local settings | Layout, scale, visibility, reminder, and panel settings stay in browser-compatible local storage. |
-| Permanent deletion | Opt-in and host-gated. The wallet never advertises the action unless the host implements the matching session deletion path. |
-| Model surface | No tools registered, no prompt injection, zero token cost. |
-| Recharge | The URL is hardcoded to the official `https://platform.deepseek.com/top_up` and is not user-configurable (anti-phishing). |
+| Token 计费 | 监听 `llm/stream` 事件，按会话和 provider 分桶：`deepseek-official` 及明确勾选的包装路由进入官方桶，其他 provider 保持第三方桶；每次用量同时锁定当时的官方价格，会话与峰谷时段都不串账。 |
+| 余额 | 钱包插件自身只直接把当前 key 作为 `Authorization` 头发往官方 `/user/balance` 接口。启用多账户切换后，所选 key 还会写入 DSH 凭证库；之后 DSH 可能使用它发起模型请求。 |
+| 账户 | key 加密存于 `$DSH_HOME/storages/accounts.json`，加密的 `accounts.json.bak` 可恢复缺失、损坏或无法解密的主文件。Windows 使用当前用户 DPAPI；其他系统使用仅限所有者访问的 AES-GCM 密钥文件，迁移时必须把 `accounts.json`、`.bak` 和 `.key` 一起保存。主备都不可读时拒绝写入。 |
+| 用量账本 | 本地事件和第三方自定义价格保存在 `$DSH_HOME/storages/wallet.json`，并保留 `wallet.json.bak`；主文件缺失或损坏时自动恢复，主备都不可读时拒绝覆盖。最多保留 365 天、20,000 条事件的会话/provider/模型/token 元数据与官方锁定费用，不保存提示词、工具参数、回答正文或 API Key；第三方费用按当前自定义规则和每条保留事件的发生时间重新估算，缺少时间信息的聚合用量安全回退到基础价。 |
+| 本地设置 | 布局、比例、数据显隐、提醒和面板位置保存在兼容浏览器的本地存储中。 |
+| 永久删除 | 默认关闭并受宿主能力限制；宿主未实现真实会话删除链路时，插件不会开放该操作。 |
+| 模型可见性 | 不注册工具、不注入提示词、零 token 消耗。 |
+| 充值 | 地址硬编码为官方 `https://platform.deepseek.com/top_up`，不可配置（防钓鱼）。 |
 
-## Pricing timeline
+## 价格时间线
 
-CNY per 1M tokens, curated from official announcements (cache writes are not billed):
+CNY/百万 token，整理自官方公告（缓存写入不计费）：
 
-- Since 2025-02-09 — deepseek-chat 2/8 (cache read 0.5), deepseek-reasoner 4/16 (cache read 1)
-- Since 2026-04-24 — v4-flash 1/2 (cache read 0.02), v4-pro 3/6 (cache read 0.025)
-- Since 2026-08-17 00:00 Beijing — peak/off-peak pricing for the v4 models (peak windows Beijing 09:00–12:00 / 14:00–18:00; off-peak is half the peak rate):
-  - v4-flash (off-peak / peak): cache read 0.05 / 0.10, input 1.5 / 3, output 4.5 / 9
-  - v4-pro (off-peak / peak): cache read 0.15 / 0.30, input 4.5 / 9, output 13.5 / 27
-- Since 2026-08-21 — v4-flash-vision-exp launched with the V4 Flash peak/off-peak table: cache read 0.05 / 0.10, input 1.5 / 3, output 4.5 / 9.
-- Since 2026-08-23 00:00 Beijing — Saturday and Sunday are no longer split into peak/off-peak windows; weekend calls use the off-peak rates all day. Weekday peak windows remain 09:00–12:00 and 14:00–18:00.
+- 2025-02-09 起——deepseek-chat 2/8（缓存读 0.5）、deepseek-reasoner 4/16（缓存读 1）
+- 2026-04-24 起——v4-flash 1/2（缓存读 0.02）、v4-pro 3/6（缓存读 0.025）
+- 2026-08-17 北京时间 00:00 起——v4 模型实行峰谷定价（高峰为北京时间 9:00–12:00 / 14:00–18:00；空闲时段价格为高峰的一半）：
+  - v4-flash（空闲 / 高峰）：缓存读 0.05 / 0.10、输入 1.5 / 3、输出 4.5 / 9
+  - v4-pro（空闲 / 高峰）：缓存读 0.15 / 0.30、输入 4.5 / 9、输出 13.5 / 27
+- 2026-08-21 起——v4-flash-vision-exp 上线并采用 V4 Flash 峰谷价格：缓存读 0.05 / 0.10、输入 1.5 / 3、输出 4.5 / 9。
+- 2026-08-23 北京时间 00:00 起——周六、周日不再区分峰谷，全天按低谷价格计费；工作日高峰时段仍为 9:00–12:00、14:00–18:00。
 
-Historical deepseek-chat and deepseek-reasoner records retain their original flat-rate table; this is not a claim that those legacy model names remain currently available. Each usage event is priced when it arrives; upgrading from 0.1.2 migrates legacy counters once using the then-current rate. Costs are estimates; the API-returned balance is authoritative.
+历史 deepseek-chat 与 deepseek-reasoner 记录继续使用原固定价格表；这不代表这些旧模型名当前仍可调用。每次用量在到达时计价；从 0.1.2 升级时，旧 token 记录会按升级时价格做一次迁移，此后不再随时段变化。花费为估算值，以官方接口返回的余额为准。
 
 ## Roadmap
 
-- [x] 365-day Token heatmap and rebuildable local usage ledger
-- [x] Z.ai Coding Plan Global/China monitoring on a generic official-plan adapter contract
-- [x] User-defined third-party Provider/model base and time-of-use pricing
-- [ ] Additional provider price/balance adapters only after real-account validation
+- [x] 365 天 Token 热力图与可重建的本地历史账本
+- [x] 基于通用官方套餐适配器的 Z.ai Coding Plan 全球区/中国区监控
+- [x] 用户自定义第三方 Provider/模型基础价与分时价
+- [ ] 其他供应商价格/余额适配器（只有完成真实账户验证后才标记支持）
 
 ## License
 
-[MIT](LICENSE)
+[MIT](./LICENSE)
