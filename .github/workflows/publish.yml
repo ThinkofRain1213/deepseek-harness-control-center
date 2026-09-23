@@ -81,7 +81,14 @@ jobs:
           fi
       - name: Publish through npm OIDC
         if: steps.existing.outputs.skip != 'true'
-        run: npm publish --access public --provenance
+        run: |
+          set -euo pipefail
+          # Every release of this fork is a semver prerelease (0.3.13-patched.N),
+          # and npm refuses to publish one without an explicit --tag. The
+          # distribution command in the README installs by package name with no
+          # version, which resolves the `latest` dist-tag, so that is the tag to
+          # keep the documented install path working.
+          npm publish --access public --provenance --tag latest
       - name: Report idempotent skip
         if: steps.existing.outputs.skip == 'true'
         run: echo 'The exact package version already exists; no duplicate publish was attempted.'
