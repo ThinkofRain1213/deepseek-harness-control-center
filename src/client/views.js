@@ -307,6 +307,43 @@ function readNotifyConfig() {
 }
 
 /**
+ * Resolve "navigate to this session" across dsh generations.
+ *
+ * The session controller owned view selection until 0.1.5 and handed it to the
+ * workspace service in 0.1.7, where `open` / `select` and the `selected` field
+ * were removed outright — the controller now documents itself as "host catalog
+ * and local reference allocator; view selection remains outside the Controller".
+ *
+ * `uiWorkspace.openSession` is preferred because it exists from 0.1.5 on and is
+ * a SUPERSET of the old `sessions.open` there: it performs the same selection
+ * and additionally clears the side panel. Preferring it therefore cannot regress
+ * an older host. `sessions.open` stays as the fallback for 0.1.2.
+ *
+ * `ctx.get` is used rather than an `inject` entry on purpose: `uiWorkspace` does
+ * not exist in 0.1.2, and cordis withholds `apply` entirely for a declared but
+ * missing service, which would stop the whole plugin from loading.
+ *
+ * @param ctx - the client scope the completion notifier received.
+ * @returns {{ open: (function(string): void)|null, via: string }}
+ *   `open` is null only on a host that exposes neither seam; the caller then
+ *   degrades to focusing the window.
+ */
+function resolveSessionOpener(ctx) {
+  var workspace = null
+  try {
+    workspace = ctx && typeof ctx.get === 'function' ? ctx.get('uiWorkspace') : null
+  } catch (e) { workspace = null }
+  if (workspace && typeof workspace.openSession === 'function') {
+    return { open: function (id) { workspace.openSession(id) }, via: 'uiWorkspace.openSession' }
+  }
+  var sessions = ctx && ctx.sessions ? ctx.sessions : null
+  if (sessions && typeof sessions.open === 'function') {
+    return { open: function (id) { sessions.open(id) }, via: 'sessions.open' }
+  }
+  return { open: null, via: 'none' }
+}
+
+/**
  * One origin-wide completion notification leader. Web Locks is preferred;
  * a renewable storage lease covers browsers and desktop WebViews without
  * Web Locks. Each completed session is queued once and the next reminder
@@ -316,6 +353,10 @@ function installCompletionNotifier(ctx) {
   // Notifications run outside every render tree, so they read the same
   // module-level binding the components use — no seat, no parameter.
   if (typeof window === 'undefined' || !ctx.sessions || !ctx.sessions.list) return function () {}
+  // Resolved once at install: the service set is stable for the client's
+  // lifetime, and installation happens during apply(), before any reminder can
+  // be clicked.
+  var opener = resolveSessionOpener(ctx)
   var stopped = false
   var leader = false
   var initialized = false
@@ -380,7 +421,12 @@ function installCompletionNotifier(ctx) {
     active.timer = null
     notification.onclick = function () {
       try { window.focus() } catch (e) { /* ignore */ }
-      try { ctx.sessions.open(item.id) } catch (e) { /* session may have been removed */ }
+      // `open` is null only on a host exposing neither navigation seam; the
+      // window focus above is then the entire effect, which is what the
+      // notifier degraded to before this resolver existed.
+      if (opener.open !== null) {
+        try { opener.open(item.id) } catch (e) { /* session may have been removed */ }
+      }
       finishActive(true)
     }
     notification.onclose = function () { finishActive(false) }
@@ -422,6 +468,12 @@ function installCompletionNotifier(ctx) {
       var state = { running: row.running === true, completed: row.completed === true }
       var previous = previousSessionStates.get(id)
       previousSessionStates.set(id, state)
+      // `completed` is projected by the session list on 0.1.5 and earlier, where
+      // it marks a pending completion reminder. 0.1.7 removed both the field and
+      // the `completedNotifications` mechanism behind it, so the second disjunct
+      // is inert there — the running->stopped edge alone carries the notifier.
+      // The condition is kept rather than deleted because dropping it would
+      // narrow reminder coverage on the older hosts this build still supports.
       var justFinished = !!previous && (
         (previous.running && !state.running) ||
         (!previous.completed && state.completed)

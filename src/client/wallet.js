@@ -1763,6 +1763,7 @@ exports.__testing = {
   selectBalanceInfo: selectBalanceInfo,
   balanceErrorText: balanceErrorText,
   installCompletionNotifier: installCompletionNotifier,
+  resolveSessionOpener: resolveSessionOpener,
   hydratePersistentPreferences: hydratePersistentPreferences,
   flushPersistentPreferences: flushPersistentPreferences,
   normalizeDataVisibility: normalizeDataVisibility,

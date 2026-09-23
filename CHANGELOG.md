@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## 0.3.13-patched.6 - 2026-09-24
+
+- 跟随 DSH 0.1.7-rc.1 迁移：`ctx.sessions.open` 在该版本被整条移除（视图选择从会话控制器移到 workspace 服务），完成通知的“点击跳转”改为按能力探测两条导航接缝 —— 优先 `ctx.get('uiWorkspace').openSession`（0.1.5 起存在，且在 0.1.5 上是 `sessions.open` 的超集：同样选中会话并额外收起侧栏面板），回落 `sessions.open`（0.1.2）。用 `ctx.get` 而非 `inject` 是刻意的：`uiWorkspace` 在 0.1.2 不存在，而 cordis 对已声明但缺失的服务会整个扣住 `apply`，那会让插件完全不加载。 / Follow the DSH 0.1.7-rc.1 migration: `ctx.sessions.open` was removed outright there (view selection moved from the session controller to the workspace service), so click-to-open from the completion reminder now probes both navigation seams by capability — preferring `ctx.get('uiWorkspace').openSession` (present since 0.1.5, and a superset of `sessions.open` there: same selection plus clearing the side panel) and falling back to `sessions.open` (0.1.2). Probing through `ctx.get` rather than an `inject` entry is deliberate: `uiWorkspace` does not exist in 0.1.2, and cordis withholds `apply` entirely for a declared-but-missing service, which would stop the plugin from loading.
+- 完成提醒的第二个触发条件（会话列表的 `completed` 字段）在 0.1.7 上失效，因为该字段与背后的 `completedNotifications` 机制一并删除；保留该条件并加注释，因为删掉会收窄仍在支持的 0.1.5 上的提醒覆盖。 / The reminder's second trigger (the session list's `completed` field) is inert on 0.1.7, which removed both the field and the `completedNotifications` mechanism behind it; the condition is kept and documented, because deleting it would narrow reminder coverage on the 0.1.5 hosts that are still supported.
+- 兼容声明补入 `0.1.5-rc.1` / `0.1.5-rc.2` / `0.1.5-rc.3` / `0.1.7-rc.1`，并把 `dsh` 范围从点值 `=0.1.5-alpha.1` 放宽为 `>=0.1.5-alpha.1 <0.1.8`。此前连实际在跑的 `0.1.5-rc.2` 都不在名单内，健康检查因此恒显示“尚未验证”。 / Declare `0.1.5-rc.1` / `0.1.5-rc.2` / `0.1.5-rc.3` / `0.1.7-rc.1` and widen the `dsh` range from the point value `=0.1.5-alpha.1` to `>=0.1.5-alpha.1 <0.1.8`. The previous list did not even cover the `0.1.5-rc.2` builds actually in service, so the health card always reported "not yet verified".
+- 0.1.7-rc.1 实机验证：隔离 `DSH_HOME` 下插件树正常合成、宿主启动无 stderr、页面 HTTP 200 且不含 “Failed to load plugins”。 / Verified on a real 0.1.7-rc.1 install with an isolated `DSH_HOME`: the plugin tree composes, the host boots with an empty stderr, and the page returns HTTP 200 without "Failed to load plugins".
+
 ## 0.3.13 - 2026-09-09
 
 - 重新发布版本标识；运行逻辑与 0.3.12 相同，两版均包含工作区依赖修复。此前关于 0.3.12 缺少最后修复的说明不正确。 / Republish version metadata; runtime behavior is unchanged from 0.3.12 and both releases include the workspace dependency fix. The earlier statement that 0.3.12 lacked the final fix was incorrect.

@@ -63,11 +63,6 @@ test('the wallet declares the locale service its i18n probe reads', () => {
   )
 })
 
-// Every component resolves `t` from the single module-level binding via
-// useWalletT(). Nothing threads a translate function through props: the
-// renderer's `locale:` seat reaches slot-registered entries only, so a nested
-// component taking `t` as a prop is the exact shape that silently renders the
-// wrong language. These assertions pin the replacement contract.
 // The whole point of the single resolution point: after apply() attaches the
 // service, flipping the active locale must change rendered copy with no
 // rebinding and no re-mount. This is the property the old prop-threaded design
@@ -187,4 +182,66 @@ test('wallet components resolve the translator locally instead of through props'
     }
   }
   assert.ok(checked >= 6, 'expected every nested panel creation site to be covered')
+})
+
+// 0.1.7 moved view selection out of the session controller into the workspace
+// service: `sessions.open` (and `select`, and the `selected` field) were removed
+// outright, so the completion notifier's click-to-open had to stop hardcoding
+// it. These pin the replacement contract — a capability probe, deliberately not
+// a version check, so an unknown host (0.1.6, a future release, a private build)
+// resolves correctly without a mapping table.
+test('the completion notifier navigates through whichever session seam the host exposes', () => {
+  let definition
+  runInNewContext(readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8'), {
+    window: { __ModuleLoader__: { load(value) { definition = value } } },
+  })
+  const plugin = definition.factory(() => ({ useEffect() {} }))
+  const resolve = plugin.__testing.resolveSessionOpener
+  assert.equal(typeof resolve, 'function', 'the opener resolver must be exported for coverage')
+
+  // 0.1.7 shape: `sessions.open` is gone; `uiWorkspace.openSession` is present.
+  const viaWorkspace = []
+  const modern = resolve({
+    get: (name) => (name === 'uiWorkspace' ? { openSession: (id) => viaWorkspace.push(id) } : undefined),
+    sessions: { list: {} },
+  })
+  assert.equal(modern.via, 'uiWorkspace.openSession', '0.1.7 must navigate through the workspace service')
+  modern.open('s-1')
+  assert.deepEqual(viaWorkspace, ['s-1'])
+
+  // 0.1.2 shape: no `uiWorkspace` service at all -> the old seam must carry it.
+  const viaSessions = []
+  const legacy = resolve({
+    get: () => undefined,
+    sessions: { open: (id) => viaSessions.push(id), list: {} },
+  })
+  assert.equal(legacy.via, 'sessions.open', 'a host without the workspace service keeps working')
+  legacy.open('s-2')
+  assert.deepEqual(viaSessions, ['s-2'])
+
+  // 0.1.5 shape: both exist. The workspace seam wins because there it is a
+  // superset (same selection plus clearing the side panel).
+  const both = resolve({
+    get: (name) => (name === 'uiWorkspace' ? { openSession() {} } : undefined),
+    sessions: { open() {}, list: {} },
+  })
+  assert.equal(both.via, 'uiWorkspace.openSession', 'the superset seam is preferred when both exist')
+
+  // A host exposing neither seam degrades to a null opener instead of throwing.
+  assert.equal(resolve({ get: () => undefined, sessions: { list: {} } }).open, null)
+
+  // Cordis rejects an undeclared service read by THROWING, so the probe must
+  // swallow that and fall through rather than take the plugin down.
+  const guarded = resolve({
+    get() { throw new Error('cannot get property "uiWorkspace" without inject') },
+    sessions: { open() {}, list: {} },
+  })
+  assert.equal(guarded.via, 'sessions.open', 'a throwing service read must fall through to the old seam')
+
+  // Malformed hosts must not crash the resolver.
+  for (const hostile of [null, undefined, {}, { get: () => 42 }, { get: () => ({ openSession: 'nope' }), sessions: { open: 5, list: {} } }]) {
+    const r = resolve(hostile)
+    assert.equal(typeof r.via, 'string', `resolver must stay total for ${JSON.stringify(hostile)}`)
+    assert.ok(r.open === null || typeof r.open === 'function', 'opener is either callable or null')
+  }
 })
